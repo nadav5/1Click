@@ -1,4 +1,4 @@
-import { Component, ChangeDetectorRef } from '@angular/core';
+﻿import { Component, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import Swal from 'sweetalert2';
@@ -12,6 +12,13 @@ export interface AdFrameworkMeta {
   subtitle: string;
 }
 
+export interface NavItem {
+  id: string;
+  label: string;
+  icon: string;
+  badge?: string;
+}
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -20,6 +27,20 @@ export interface AdFrameworkMeta {
   styleUrls: ['./dashboard.component.css'],
 })
 export class DashboardComponent {
+  /**
+   * Navigation state.
+   */
+  activeNav: string = 'campaign-builder';
+  isSidebarOpen: boolean = false;
+
+  readonly navItems: NavItem[] = [
+    { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+    { id: 'campaign-builder', label: 'Campaign Builder', icon: 'wand', badge: 'Active' },
+    { id: 'products', label: 'Product Scraper', icon: 'package' },
+    { id: 'media-studio', label: 'Media Studio', icon: 'photo' },
+    { id: 'analytics', label: 'Ad Analytics', icon: 'chart' },
+  ];
+
   /**
    * Input model for the AliExpress product URL.
    */
@@ -50,19 +71,19 @@ export class DashboardComponent {
   readonly frameworkMeta: AdFrameworkMeta[] = [
     {
       badge: 'PAS Framework',
-      badgeClass: 'bg-rose-50 text-rose-700 border-rose-200',
+      badgeClass: 'bg-rose-50 text-rose-700 border-rose-200/80',
       name: 'Problem · Agitation · Solution',
       subtitle: 'Pins down daily friction and presents the product as the effortless fix.',
     },
     {
       badge: 'AIDA Framework',
-      badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
+      badgeClass: 'bg-amber-50 text-amber-700 border-amber-200/80',
       name: 'Attention · Interest · Desire · Action',
       subtitle: 'Scroll-stopping hook, builds intense curiosity and sparks decisive action.',
     },
     {
       badge: 'Story & Social Proof',
-      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
       name: 'Customer Narrative & Trust',
       subtitle: 'Relatable scenario that overcomes buyer skepticism with social proof.',
     },
@@ -100,7 +121,7 @@ export class DashboardComponent {
       toast.onmouseleave = Swal.resumeTimer;
     },
     customClass: {
-      popup: 'border border-slate-200/90 shadow-md rounded-xl bg-white text-slate-800 text-xs font-sans p-3.5',
+      popup: 'border border-slate-200/90 shadow-lg rounded-xl bg-white text-slate-800 text-xs font-sans p-3.5',
       title: 'text-xs font-semibold text-slate-900',
     },
   });
@@ -109,6 +130,28 @@ export class DashboardComponent {
     private readonly campaignService: CampaignService,
     private readonly cdr: ChangeDetectorRef,
   ) {}
+
+  /**
+   * Switch active sidebar navigation tab.
+   */
+  selectNav(navId: string): void {
+    this.activeNav = navId;
+    this.isSidebarOpen = false;
+    if (navId !== 'campaign-builder') {
+      const item = this.navItems.find((n) => n.id === navId);
+      this.Toast.fire({
+        icon: 'info',
+        title: `${item?.label || 'Module'} selected`,
+      });
+    }
+  }
+
+  /**
+   * Toggle sidebar on mobile devices.
+   */
+  toggleSidebar(): void {
+    this.isSidebarOpen = !this.isSidebarOpen;
+  }
 
   /**
    * Populates the input field with a demo URL.
@@ -137,7 +180,7 @@ export class DashboardComponent {
     this.isLoading = true;
     this.errorMessage = null;
     this.campaignResult = null;
-    this.loadingStep = 'Initializing browser & launching Puppeteer crawler...';
+    this.loadingStep = 'Launching Puppeteer crawler to extract product imagery & specs...';
 
     // Progressive step updates to provide transparent feedback during generation
     const stepTimer1 = setTimeout(() => {
@@ -145,11 +188,11 @@ export class DashboardComponent {
     }, 2500);
 
     const stepTimer2 = setTimeout(() => {
-      if (this.isLoading) this.loadingStep = 'Generating PAS, AIDA & Story copy with Gemini...';
+      if (this.isLoading) this.loadingStep = 'Prompting Gemini with PAS, AIDA & Story direct-response frameworks...';
     }, 5500);
 
     const stepTimer3 = setTimeout(() => {
-      if (this.isLoading) this.loadingStep = 'Sharp 1080x1080 asset styling & FFmpeg video rendering...';
+      if (this.isLoading) this.loadingStep = 'Sharp 1080x1080 square framing & FFmpeg 10s crossfade video synthesis...';
     }, 9500);
 
     this.campaignService.generateCampaign(this.productUrl).subscribe({

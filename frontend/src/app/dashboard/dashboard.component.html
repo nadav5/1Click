@@ -1,406 +1,544 @@
-﻿<!-- Main Container: Slate/Gray enterprise palette -->
-<div class="min-h-screen bg-slate-50 text-slate-800 antialiased font-sans pb-20">
+<!-- App Shell Container -->
+<div class="flex h-screen bg-slate-100/80 font-sans antialiased text-slate-800 overflow-hidden">
 
-  <!-- Top Enterprise Navigation Bar -->
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <!-- Minimalist Dark Brand Mark -->
-        <div class="h-9 w-9 rounded-lg bg-slate-900 flex items-center justify-center text-white font-semibold text-sm shadow-xs">
-          1C
-        </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <h1 class="text-sm font-semibold text-slate-900 tracking-tight">1-Click Campaign</h1>
-            <span class="px-2 py-0.5 text-[11px] font-medium bg-slate-100 text-slate-700 rounded-md border border-slate-200">Enterprise Direct-Response</span>
-          </div>
-          <p class="text-[11px] text-slate-500 hidden sm:block">Automated E-Commerce Marketing Suite & Asset Studio</p>
-        </div>
-      </div>
+  <!-- Mobile Sidebar Backdrop Overlay -->
+  <div
+    *ngIf="isSidebarOpen"
+    (click)="toggleSidebar()"
+    class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 md:hidden transition-opacity"
+  ></div>
 
-      <!-- Right System Status Indicator -->
-      <div class="flex items-center gap-3 text-xs font-medium text-slate-600">
-        <div class="flex items-center gap-1.5 bg-slate-100/80 text-slate-700 px-3 py-1 rounded-md border border-slate-200">
-          <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-          <span>Engine Online · Port 3000</span>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <!-- Main Content Wrapper -->
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
-
-    <!-- Hero / Input Section -->
-    <section class="bg-white rounded-xl p-6 sm:p-7 shadow-xs border border-slate-200 mb-8 transition-all">
-      <div class="max-w-3xl">
-        <h2 class="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-          Turn Product Links into High-Converting Ad Campaigns
-        </h2>
-        <p class="mt-1.5 text-xs sm:text-sm text-slate-500 leading-relaxed">
-          Input an e-commerce product URL. The engine crawls the DOM, extracts high-resolution imagery, generates psychological direct-response copy (PAS, AIDA, Story) with Gemini, and compiles a 10s MP4 promotional video.
-        </p>
-      </div>
-
-      <!-- URL Input & Action Form -->
-      <div class="mt-6">
-        <div class="flex flex-col sm:flex-row gap-3">
-          <div class="relative flex-1">
-            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
-              </svg>
-            </div>
-            <input
-              type="url"
-              [(ngModel)]="productUrl"
-              [disabled]="isLoading"
-              placeholder="https://www.aliexpress.com/item/100500...html"
-              class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 transition-all shadow-2xs disabled:opacity-60"
-            />
-          </div>
-
-          <button
-            (click)="onGenerate()"
-            [disabled]="isLoading || !productUrl.trim()"
-            class="sm:w-auto w-full inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-medium text-sm rounded-lg shadow-xs active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
-          >
-            <!-- Spinner -->
-            <svg *ngIf="isLoading" class="animate-spin -ml-0.5 mr-1.5 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-
-            <!-- Generate Icon -->
-            <svg *ngIf="!isLoading" class="w-4 h-4 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-            </svg>
-
-            <span>{{ isLoading ? 'Synthesizing...' : 'Generate Campaign' }}</span>
-          </button>
-        </div>
-
-        <!-- Quick Demo Chips -->
-        <div class="mt-3.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-          <span class="font-medium text-slate-600">Sample Products:</span>
-          <button
-            *ngFor="let sample of sampleUrls"
-            type="button"
-            (click)="setSampleUrl(sample.url)"
-            [disabled]="isLoading"
-            class="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition-colors border border-slate-200 disabled:opacity-50 cursor-pointer"
-          >
-            {{ sample.label }}
-          </button>
-        </div>
-
-        <!-- Error Notification Banner -->
-        <div *ngIf="errorMessage" class="mt-5 p-4 rounded-lg bg-rose-50 border border-rose-200 flex items-start gap-3 text-rose-800">
-          <svg class="w-4 h-4 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-          </svg>
-          <div>
-            <h4 class="font-semibold text-xs">Campaign Generation Notice</h4>
-            <p class="text-xs mt-0.5 text-rose-700">{{ errorMessage }}</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- LOADING STATE: SKELETON LOADER -->
-    <div *ngIf="isLoading" class="space-y-6">
-
-      <!-- Step Tracker Banner -->
-      <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-xs flex items-center justify-between">
+  <!-- Left Sidebar Navigation -->
+  <aside
+    [ngClass]="isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
+    class="fixed md:static inset-y-0 left-0 w-64 bg-slate-900 text-white flex flex-col justify-between border-r border-slate-800/80 shrink-0 z-50 transition-transform duration-300 ease-in-out select-none shadow-2xl md:shadow-none"
+  >
+    <!-- Top Branding & Navigation -->
+    <div class="p-5 flex flex-col gap-6">
+      
+      <!-- Brand Logo Header -->
+      <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <span class="relative flex h-2.5 w-2.5">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-slate-900"></span>
-          </span>
+          <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-600 flex items-center justify-center text-white font-black text-base shadow-lg shadow-indigo-500/25">
+            1C
+          </div>
           <div>
-            <p class="text-xs font-semibold text-slate-900">{{ loadingStep }}</p>
-            <p class="text-[11px] text-slate-400">Processing DOM scraping, direct-response copy, and FFmpeg media rendering</p>
+            <div class="flex items-center gap-1.5">
+              <h1 class="text-base font-bold text-white tracking-tight">1-Click</h1>
+              <span class="px-1.5 py-0.5 text-[10px] font-bold bg-indigo-500/20 text-indigo-300 rounded border border-indigo-500/30">PRO</span>
+            </div>
+            <p class="text-[11px] text-slate-400 font-medium">Campaign Studio</p>
           </div>
         </div>
-        <span class="text-xs font-mono text-slate-400">Step in progress...</span>
+
+        <!-- Close button on mobile -->
+        <button
+          (click)="toggleSidebar()"
+          class="md:hidden text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
       </div>
 
-      <!-- Top Skeleton: Visual Assets & Video Studio (LAYOUT FIRST) -->
-      <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-xs space-y-4">
-        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-          <div class="space-y-1.5">
-            <div class="h-4 w-48 bg-slate-200 rounded animate-pulse"></div>
-            <div class="h-3 w-72 bg-slate-100 rounded animate-pulse"></div>
-          </div>
-          <div class="h-6 w-24 bg-slate-200 rounded-md animate-pulse"></div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start pt-2">
-          <!-- 4 Images Skeleton -->
-          <div class="lg:col-span-7 space-y-3">
-            <div class="h-3 w-40 bg-slate-200 rounded animate-pulse"></div>
-            <div class="grid grid-cols-2 gap-3">
-              <div class="aspect-square rounded-lg bg-slate-200/80 animate-pulse border border-slate-200"></div>
-              <div class="aspect-square rounded-lg bg-slate-200/80 animate-pulse border border-slate-200"></div>
-              <div class="aspect-square rounded-lg bg-slate-200/80 animate-pulse border border-slate-200"></div>
-              <div class="aspect-square rounded-lg bg-slate-200/80 animate-pulse border border-slate-200"></div>
+      <!-- Navigation Section -->
+      <div class="space-y-1">
+        <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Campaign Tools</p>
+        <nav class="space-y-1">
+          <button
+            *ngFor="let item of navItems"
+            type="button"
+            (click)="selectNav(item.id)"
+            [ngClass]="activeNav === item.id ? 'bg-indigo-600 text-white font-semibold shadow-md shadow-indigo-600/30' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 font-medium'"
+            class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-all text-left cursor-pointer group"
+          >
+            <div class="flex items-center gap-3">
+              <!-- Icons per nav item -->
+              <span class="shrink-0" [ngClass]="activeNav === item.id ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'">
+                <!-- Dashboard / Overview -->
+                <svg *ngIf="item.id === 'dashboard'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                </svg>
+                <!-- Campaign Builder -->
+                <svg *ngIf="item.id === 'campaign-builder'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+                <!-- Product Scraper -->
+                <svg *ngIf="item.id === 'products'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                </svg>
+                <!-- Media Studio -->
+                <svg *ngIf="item.id === 'media-studio'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                <!-- Ad Analytics -->
+                <svg *ngIf="item.id === 'analytics'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+              </span>
+              <span>{{ item.label }}</span>
             </div>
-          </div>
 
-          <!-- Video Skeleton -->
-          <div class="lg:col-span-5 space-y-3">
-            <div class="h-3 w-36 bg-slate-200 rounded animate-pulse"></div>
-            <div class="aspect-square rounded-lg bg-slate-200/90 animate-pulse border border-slate-200 flex items-center justify-center">
-              <svg class="w-10 h-10 text-slate-300 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-            </div>
-            <div class="h-10 w-full bg-slate-100 rounded-lg animate-pulse border border-slate-200"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Bottom Skeleton: 2 Columns for Ad Copy & Audience -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <!-- Copy Skeleton -->
-        <div class="lg:col-span-7 bg-white rounded-xl p-6 border border-slate-200 shadow-xs space-y-4">
-          <div class="h-4 w-52 bg-slate-200 rounded animate-pulse"></div>
-          <div class="space-y-3">
-            <div class="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-2.5">
-              <div class="h-3 w-28 bg-slate-200 rounded animate-pulse"></div>
-              <div class="h-2.5 w-full bg-slate-200 rounded animate-pulse"></div>
-              <div class="h-2.5 w-4/5 bg-slate-200 rounded animate-pulse"></div>
-              <div class="h-2.5 w-3/5 bg-slate-200 rounded animate-pulse"></div>
-            </div>
-            <div class="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-2.5">
-              <div class="h-3 w-28 bg-slate-200 rounded animate-pulse"></div>
-              <div class="h-2.5 w-full bg-slate-200 rounded animate-pulse"></div>
-              <div class="h-2.5 w-4/5 bg-slate-200 rounded animate-pulse"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Audience Skeleton -->
-        <div class="lg:col-span-5 bg-white rounded-xl p-6 border border-slate-200 shadow-xs space-y-4">
-          <div class="h-4 w-44 bg-slate-200 rounded animate-pulse"></div>
-          <div class="space-y-2.5">
-            <div class="h-12 w-full bg-slate-100 rounded-lg animate-pulse border border-slate-200"></div>
-            <div class="h-12 w-full bg-slate-100 rounded-lg animate-pulse border border-slate-200"></div>
-            <div class="h-12 w-full bg-slate-100 rounded-lg animate-pulse border border-slate-200"></div>
-          </div>
-          <div class="pt-2 flex flex-wrap gap-2">
-            <div class="h-6 w-20 bg-slate-200 rounded-full animate-pulse"></div>
-            <div class="h-6 w-24 bg-slate-200 rounded-full animate-pulse"></div>
-            <div class="h-6 w-16 bg-slate-200 rounded-full animate-pulse"></div>
-            <div class="h-6 w-28 bg-slate-200 rounded-full animate-pulse"></div>
-          </div>
-        </div>
+            <!-- Active / Pill Badge -->
+            <span
+              *ngIf="item.badge"
+              [ngClass]="activeNav === item.id ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'"
+              class="px-2 py-0.5 rounded-full text-[10px] font-semibold"
+            >
+              {{ item.badge }}
+            </span>
+          </button>
+        </nav>
       </div>
 
     </div>
 
-    <!-- CAMPAIGN RESULTS: ENTERPRISE LAYOUT -->
-    <div *ngIf="campaignResult && !isLoading" class="space-y-6 animate-fadeIn">
-
-      <!-- Product Meta Overview Header -->
-      <div class="bg-white rounded-xl p-5 shadow-xs border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div class="space-y-1">
-          <div class="flex items-center gap-2.5">
-            <span class="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-900 text-white font-mono">
-              {{ campaignResult.product.price }}
-            </span>
-            <span class="text-xs text-slate-500 font-mono">SKU #{{ campaignResult.productId }}</span>
-            <span class="text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-medium">Ready to Deploy</span>
-          </div>
-          <h2 class="text-base font-bold text-slate-900 line-clamp-1">
-            {{ campaignResult.product.title }}
-          </h2>
-          <p class="text-xs text-slate-500 line-clamp-2 max-w-4xl">
-            {{ campaignResult.product.description }}
-          </p>
+    <!-- Bottom Engine Status & User Profile -->
+    <div class="p-4 space-y-3 border-t border-slate-800/80">
+      
+      <!-- Engine Status Card -->
+      <div class="p-3 rounded-xl bg-slate-800/70 border border-slate-700/60 space-y-1.5">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-semibold text-slate-300">Processing Engine</span>
+          <span class="flex h-2 w-2 relative">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
         </div>
-
-        <a
-          [href]="campaignResult.product.sourceUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="shrink-0 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg border border-slate-200 transition-colors"
-        >
-          <span>View Source Product</span>
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-          </svg>
-        </a>
+        <p class="text-[10px] text-slate-400 leading-tight">Gemini Flash · Sharp · FFmpeg 9.0</p>
+        <div class="pt-1 flex items-center justify-between text-[10px] text-slate-400">
+          <span>Backend Port: 3000</span>
+          <span class="text-emerald-400 font-medium">Ready</span>
+        </div>
       </div>
 
-      <!-- CARD 1: MEDIA GALLERY & PROMO VIDEO (TOP PRIORITY VISUALS) -->
-      <section class="bg-white rounded-xl shadow-xs border border-slate-200 p-6">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
-          <div class="flex items-center gap-2.5">
-            <div class="p-2 rounded-lg bg-slate-100 text-slate-900 border border-slate-200">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+      <!-- User Profile Row -->
+      <div class="flex items-center justify-between pt-1 px-1">
+        <div class="flex items-center gap-2.5">
+          <div class="h-8 w-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-violet-500 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+            NB
+          </div>
+          <div>
+            <p class="text-xs font-semibold text-white">Nadav Bar</p>
+            <p class="text-[10px] text-indigo-300 font-medium">Growth Plan</p>
+          </div>
+        </div>
+
+        <button class="text-slate-400 hover:text-white p-1 rounded-md transition-colors cursor-pointer" title="Settings">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+        </button>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- Right Workspace Area -->
+  <div class="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+
+    <!-- Top Workspace Header -->
+    <header class="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-6 sm:px-8 py-3.5 flex items-center justify-between shadow-xs">
+      <div class="flex items-center gap-3">
+        <!-- Mobile Toggle Button -->
+        <button
+          (click)="toggleSidebar()"
+          class="md:hidden text-slate-600 hover:text-slate-900 p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+          </svg>
+        </button>
+
+        <!-- Breadcrumbs -->
+        <div class="flex items-center gap-2 text-xs font-medium text-slate-500">
+          <span class="text-slate-400">Marketing Hub</span>
+          <span class="text-slate-300">/</span>
+          <span class="text-slate-900 font-semibold">1-Click Campaign Builder</span>
+        </div>
+      </div>
+
+      <!-- Right Header Actions & Status -->
+      <div class="flex items-center gap-3">
+        <div class="hidden sm:flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full text-xs font-semibold border border-emerald-200/80 shadow-2xs">
+          <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Pipeline Connected</span>
+        </div>
+        <div class="text-xs font-semibold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-lg border border-indigo-100">
+          POC v1.2
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Scrollable Content -->
+    <main class="p-6 sm:p-8 max-w-7xl mx-auto w-full space-y-8 pb-24">
+
+      <!-- HERO INPUT CARD -->
+      <section class="bg-white rounded-2xl p-6 sm:p-8 shadow-lg shadow-slate-200/50 border border-slate-200/90 transition-all">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div class="flex items-start gap-4">
+            <div class="p-3 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 text-indigo-600 border border-indigo-200/60 shadow-xs shrink-0">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
               </svg>
             </div>
             <div>
-              <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Visual Assets & Promo Video</h3>
-              <p class="text-xs text-slate-500">1080x1080 square assets ready for Meta & TikTok feeds + 10s MP4 crossfade video</p>
+              <h2 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                Turn Any Product Link into an Ad Campaign
+              </h2>
+              <p class="mt-1 text-xs sm:text-sm text-slate-500 leading-relaxed max-w-3xl">
+                Paste an AliExpress product URL. The engine crawls specs, upgrades 4K imagery, writes direct-response PAS/AIDA copy with Gemini, and renders a 10s MP4 promo video in under 60 seconds.
+              </p>
             </div>
-          </div>
-
-          <div class="flex items-center gap-2">
-            <span class="px-2.5 py-1 text-xs font-mono font-medium bg-slate-100 text-slate-700 rounded-md border border-slate-200">
-              1080x1080 Square
-            </span>
-            <span class="px-2.5 py-1 text-xs font-mono font-medium bg-slate-100 text-slate-700 rounded-md border border-slate-200">
-              10s H.264 MP4
-            </span>
           </div>
         </div>
 
-        <!-- Media Grid Layout: 4 Images (Left) + Video Player (Right) -->
-        <div class="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-
-          <!-- Left: 4 Downloaded & Resized Images -->
-          <div class="lg:col-span-7">
-            <h4 class="text-xs font-semibold text-slate-700 mb-3 flex items-center justify-between">
-              <span>High-Resolution Product Assets (4x)</span>
-              <span class="text-[11px] text-slate-400">Click to view full resolution</span>
-            </h4>
-            <div class="grid grid-cols-2 gap-3">
-              <div
-                *ngFor="let imgUrl of campaignResult.media.images; let i = index"
-                class="group relative aspect-square rounded-lg overflow-hidden bg-slate-100 border border-slate-200 shadow-2xs"
-              >
-                <img
-                  [src]="imgUrl"
-                  [alt]="'Product Asset ' + (i + 1)"
-                  class="w-full h-full object-cover group-hover:scale-102 transition-transform duration-200"
-                  loading="lazy"
-                />
-                <!-- Subtle Badge -->
-                <div class="absolute bottom-2 left-2 px-2 py-0.5 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-mono font-medium rounded">
-                  Asset #{{ i + 1 }} · 1080px
-                </div>
-                <!-- Open In New Tab -->
-                <a
-                  [href]="imgUrl"
-                  target="_blank"
-                  class="absolute top-2 right-2 p-1.5 bg-white/90 rounded-md text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity shadow-xs border border-slate-200"
-                  title="Open Full Resolution"
-                >
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                  </svg>
-                </a>
-              </div>
-            </div>
-          </div>
-
-          <!-- Right: Generated 10s Promo Video Player -->
-          <div class="lg:col-span-5 flex flex-col">
-            <h4 class="text-xs font-semibold text-slate-700 mb-3 flex items-center justify-between">
-              <span>Automated Promo Video</span>
-              <span class="text-[11px] text-slate-500 font-mono">Crossfade 25fps</span>
-            </h4>
-
-            <div class="relative aspect-square rounded-lg overflow-hidden bg-slate-950 border border-slate-200 shadow-xs flex items-center justify-center">
-              <video
-                *ngIf="campaignResult.media.videoUrl"
-                [src]="campaignResult.media.videoUrl"
-                controls
-                loop
-                playsinline
-                class="w-full h-full object-contain"
-              >
-                Your browser does not support the video tag.
-              </video>
-            </div>
-
-            <!-- Video Actions Bar -->
-            <div class="mt-3 p-3 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between">
-              <div>
-                <p class="text-xs font-semibold text-slate-800">promo_video.mp4</p>
-                <p class="text-[11px] text-slate-500">1080x1080 · 10s · Ready for Social Ads</p>
-              </div>
-
-              <a
-                [href]="campaignResult.media.videoUrl"
-                download="promo_video.mp4"
-                target="_blank"
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium rounded-md shadow-xs transition-colors cursor-pointer"
-              >
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+        <!-- URL Input & Button -->
+        <div class="mt-6">
+          <div class="flex flex-col sm:flex-row gap-3">
+            <div class="relative flex-1">
+              <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
                 </svg>
-                <span>Download MP4</span>
-              </a>
+              </div>
+              <input
+                type="url"
+                [(ngModel)]="productUrl"
+                [disabled]="isLoading"
+                placeholder="https://www.aliexpress.com/item/100500...html"
+                class="w-full pl-10 pr-4 py-3 bg-slate-50/70 border border-slate-300 rounded-xl text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-inner disabled:opacity-60"
+              />
             </div>
+
+            <button
+              (click)="onGenerate()"
+              [disabled]="isLoading || !productUrl.trim()"
+              class="sm:w-auto w-full inline-flex items-center justify-center gap-2 px-7 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow-md shadow-indigo-600/25 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+            >
+              <!-- Spinner -->
+              <svg *ngIf="isLoading" class="animate-spin -ml-0.5 mr-1.5 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+
+              <!-- Sparkle icon -->
+              <svg *ngIf="!isLoading" class="w-4 h-4 text-indigo-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+              </svg>
+
+              <span>{{ isLoading ? 'Synthesizing...' : 'Generate Campaign' }}</span>
+            </button>
           </div>
 
+          <!-- Quick Test Demo Chips -->
+          <div class="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <span class="font-semibold text-slate-600">Quick Test Demos:</span>
+            <button
+              *ngFor="let sample of sampleUrls"
+              type="button"
+              (click)="setSampleUrl(sample.url)"
+              [disabled]="isLoading"
+              class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 text-slate-700 text-xs font-medium transition-all border border-slate-200/90 shadow-2xs disabled:opacity-50 cursor-pointer"
+            >
+              {{ sample.label }}
+            </button>
+          </div>
+
+          <!-- Error Alert Banner -->
+          <div *ngIf="errorMessage" class="mt-5 p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-3 text-rose-800 animate-fadeIn">
+            <svg class="w-5 h-5 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            <div>
+              <h4 class="font-bold text-xs">Generation Notice</h4>
+              <p class="text-xs mt-0.5 text-rose-700">{{ errorMessage }}</p>
+            </div>
+          </div>
         </div>
       </section>
 
-      <!-- 2-COLUMN SECTION: COPYWRITING & TARGETING -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <!-- SKELETON LOADER STATE (When isLoading) -->
+      <div *ngIf="isLoading" class="space-y-6 animate-fadeIn">
 
-        <!-- CARD 2: DIRECT-RESPONSE AD COPY (PAS, AIDA, STORY) -->
-        <div class="lg:col-span-7 bg-white rounded-xl shadow-xs border border-slate-200 p-6 flex flex-col justify-between">
-          <div>
-            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-              <div class="flex items-center gap-2.5">
-                <div class="p-2 rounded-lg bg-slate-100 text-slate-900 border border-slate-200">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                  </svg>
-                </div>
-                <div>
-                  <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Direct-Response Ad Copies</h3>
-                  <p class="text-xs text-slate-500">Psychological angles engineered for high conversion rates</p>
-                </div>
+        <!-- Progress Step Tracker -->
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-md shadow-slate-100 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="relative flex h-3 w-3">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-3 w-3 bg-indigo-600"></span>
+            </span>
+            <div>
+              <p class="text-xs font-bold text-slate-900">{{ loadingStep }}</p>
+              <p class="text-[11px] text-slate-400">Processing DOM scraping, direct-response copy, and FFmpeg media rendering</p>
+            </div>
+          </div>
+          <span class="text-xs font-mono font-medium text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-100">
+            Step Active
+          </span>
+        </div>
+
+        <!-- Skeleton 1: Top Media Showcase -->
+        <div class="bg-white rounded-2xl p-7 border border-slate-200 shadow-lg shadow-slate-100 space-y-4">
+          <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div class="flex items-center gap-3">
+              <div class="h-10 w-10 bg-indigo-50 rounded-xl animate-pulse"></div>
+              <div class="space-y-1.5">
+                <div class="h-4 w-48 bg-slate-200 rounded animate-pulse"></div>
+                <div class="h-3 w-72 bg-slate-100 rounded animate-pulse"></div>
               </div>
-              <span class="text-xs font-mono font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                3 Frameworks
+            </div>
+            <div class="h-6 w-32 bg-slate-100 rounded-lg animate-pulse"></div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start pt-2">
+            <div class="lg:col-span-7 space-y-3">
+              <div class="h-3 w-40 bg-slate-200 rounded animate-pulse"></div>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="aspect-square rounded-xl bg-slate-200/80 animate-pulse border border-slate-200"></div>
+                <div class="aspect-square rounded-xl bg-slate-200/80 animate-pulse border border-slate-200"></div>
+                <div class="aspect-square rounded-xl bg-slate-200/80 animate-pulse border border-slate-200"></div>
+                <div class="aspect-square rounded-xl bg-slate-200/80 animate-pulse border border-slate-200"></div>
+              </div>
+            </div>
+            <div class="lg:col-span-5 space-y-3">
+              <div class="h-3 w-36 bg-slate-200 rounded animate-pulse"></div>
+              <div class="aspect-square rounded-xl bg-slate-200/90 animate-pulse border border-slate-200"></div>
+              <div class="h-10 w-full bg-slate-100 rounded-xl animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Skeleton 2: Copywriting & Targeting -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-7 bg-white rounded-2xl p-7 border border-slate-200 shadow-lg shadow-slate-100 space-y-4">
+            <div class="h-4 w-52 bg-slate-200 rounded animate-pulse"></div>
+            <div class="space-y-3">
+              <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                <div class="h-3 w-28 bg-slate-200 rounded animate-pulse"></div>
+                <div class="h-2.5 w-full bg-slate-200 rounded animate-pulse"></div>
+                <div class="h-2.5 w-4/5 bg-slate-200 rounded animate-pulse"></div>
+              </div>
+              <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                <div class="h-3 w-28 bg-slate-200 rounded animate-pulse"></div>
+                <div class="h-2.5 w-full bg-slate-200 rounded animate-pulse"></div>
+                <div class="h-2.5 w-4/5 bg-slate-200 rounded animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="lg:col-span-5 bg-white rounded-2xl p-7 border border-slate-200 shadow-lg shadow-slate-100 space-y-4">
+            <div class="h-4 w-44 bg-slate-200 rounded animate-pulse"></div>
+            <div class="space-y-2.5">
+              <div class="h-14 w-full bg-slate-100 rounded-xl animate-pulse"></div>
+              <div class="h-14 w-full bg-slate-100 rounded-xl animate-pulse"></div>
+              <div class="h-14 w-full bg-slate-100 rounded-xl animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RESULTS SHOWCASE (When campaignResult exists) -->
+      <div *ngIf="campaignResult && !isLoading" class="space-y-8 animate-fadeIn">
+
+        <!-- Scraped Product Overview Header Banner -->
+        <div class="bg-white rounded-2xl p-6 shadow-lg shadow-slate-200/50 border border-slate-200/90 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div class="space-y-1.5">
+            <div class="flex items-center gap-2.5">
+              <span class="px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 font-mono border border-emerald-200">
+                Price: {{ campaignResult.product.price }}
+              </span>
+              <span class="text-xs text-slate-500 font-mono font-medium">SKU #{{ campaignResult.productId }}</span>
+              <span class="text-xs text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200 font-semibold">
+                Direct-Response Ready
               </span>
             </div>
+            <h2 class="text-lg sm:text-xl font-black text-slate-900 line-clamp-1">
+              {{ campaignResult.product.title }}
+            </h2>
+            <p class="text-xs text-slate-500 line-clamp-2 max-w-4xl leading-relaxed">
+              {{ campaignResult.product.description }}
+            </p>
+          </div>
 
-            <!-- Ad Copies Cards List -->
-            <div class="mt-5 space-y-4">
-              <div
-                *ngFor="let copy of campaignResult.marketing.facebookAdCopies; let idx = index"
-                class="relative p-4 rounded-lg bg-slate-50 border border-slate-200 hover:border-slate-300 transition-all"
-              >
-                <!-- Framework Header Row -->
-                <div class="flex items-start justify-between gap-3 mb-2.5 pb-2 border-b border-slate-200/60">
+          <a
+            [href]="campaignResult.product.sourceUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="shrink-0 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 transition-colors"
+          >
+            <span>View Source Link</span>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+            </svg>
+          </a>
+        </div>
+
+        <!-- CARD 1: CREATIVE & MEDIA ASSETS (TOP POSITION - HIGH PROMINENCE) -->
+        <section class="bg-white rounded-2xl shadow-lg shadow-slate-200/50 border border-slate-200/90 p-6 sm:p-8">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-5 border-b border-slate-100 gap-3">
+            <div class="flex items-center gap-3">
+              <div class="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-xs">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-base font-bold text-slate-900 tracking-tight">Creative & Media Studio</h3>
+                <p class="text-xs text-slate-500">1080x1080 square assets ready for Meta & TikTok feeds + 10s MP4 crossfade video</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-1 text-xs font-mono font-semibold bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200">
+                1080x1080 Square
+              </span>
+              <span class="px-2.5 py-1 text-xs font-mono font-semibold bg-violet-50 text-violet-700 rounded-lg border border-violet-200">
+                10s Crossfade MP4
+              </span>
+            </div>
+          </div>
+
+          <!-- Media Showcase Grid -->
+          <div class="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+            <!-- Left: 4 Downloaded & Resized Images -->
+            <div class="lg:col-span-7">
+              <h4 class="text-xs font-bold text-slate-700 mb-3 uppercase tracking-wider flex items-center justify-between">
+                <span>📸 High-Resolution Product Assets (4x)</span>
+                <span class="text-[11px] text-slate-400 font-normal">Sharp Center-Cropped</span>
+              </h4>
+              <div class="grid grid-cols-2 gap-3.5">
+                <div
+                  *ngFor="let imgUrl of campaignResult.media.images; let i = index"
+                  class="group relative aspect-square rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shadow-xs hover:shadow-md transition-all"
+                >
+                  <img
+                    [src]="imgUrl"
+                    [alt]="'Product Asset ' + (i + 1)"
+                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                  />
+                  <!-- Overlay Badge -->
+                  <div class="absolute bottom-2.5 left-2.5 px-2.5 py-1 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-mono font-semibold rounded-lg">
+                    Asset #{{ i + 1 }} · 1080px
+                  </div>
+                  <!-- Open in new tab -->
+                  <a
+                    [href]="imgUrl"
+                    target="_blank"
+                    class="absolute top-2.5 right-2.5 p-1.5 bg-white/95 rounded-lg text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm border border-slate-200 hover:text-indigo-600 cursor-pointer"
+                    title="Open Full Resolution"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                    </svg>
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: 10s Promo Video Player -->
+            <div class="lg:col-span-5 flex flex-col">
+              <h4 class="text-xs font-bold text-slate-700 mb-3 uppercase tracking-wider flex items-center justify-between">
+                <span>🎬 Generated Promo Video</span>
+                <span class="text-[11px] text-indigo-600 font-mono font-semibold">25fps · Crossfade</span>
+              </h4>
+
+              <div class="relative aspect-square rounded-2xl overflow-hidden bg-slate-950 border border-slate-300 shadow-md flex items-center justify-center">
+                <video
+                  *ngIf="campaignResult.media.videoUrl"
+                  [src]="campaignResult.media.videoUrl"
+                  controls
+                  loop
+                  playsinline
+                  class="w-full h-full object-contain"
+                >
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+
+              <!-- Video Details Bar -->
+              <div class="mt-3.5 p-3.5 rounded-xl bg-slate-50 border border-slate-200/90 flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-bold text-slate-900">promo_video.mp4</p>
+                  <p class="text-[11px] text-slate-500">10s · 1080x1080 · Ready for Reels/TikTok</p>
+                </div>
+
+                <a
+                  [href]="campaignResult.media.videoUrl"
+                  download="promo_video.mp4"
+                  target="_blank"
+                  class="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors cursor-pointer"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                  </svg>
+                  <span>Download MP4</span>
+                </a>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- CARD 2: DIRECT-RESPONSE AD COPIES (3 FRAMEWORKS) -->
+        <section class="bg-white rounded-2xl shadow-lg shadow-slate-200/50 border border-slate-200/90 p-6 sm:p-8">
+          <div class="flex items-center justify-between pb-5 border-b border-slate-100">
+            <div class="flex items-center gap-3">
+              <div class="p-2.5 rounded-xl bg-rose-50 text-rose-600 border border-rose-100 shadow-xs">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-base font-bold text-slate-900 tracking-tight">Direct-Response Ad Copies</h3>
+                <p class="text-xs text-slate-500">Engineered with proven psychological sales triggers for high conversion rates</p>
+              </div>
+            </div>
+            <span class="text-xs font-bold text-rose-700 bg-rose-50 px-3 py-1 rounded-full border border-rose-200">
+              3 Variations
+            </span>
+          </div>
+
+          <!-- 3 Ad Copies Cards Grid -->
+          <div class="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div
+              *ngFor="let copy of campaignResult.marketing.facebookAdCopies; let idx = index"
+              class="relative rounded-2xl bg-slate-50/80 border border-slate-200/90 hover:border-indigo-300 p-5 flex flex-col justify-between transition-all hover:shadow-md"
+            >
+              <div>
+                <!-- Framework Header -->
+                <div class="flex items-start justify-between gap-2 pb-3 border-b border-slate-200/60 mb-3.5">
                   <div>
-                    <div class="flex items-center gap-2">
-                      <span
-                        [ngClass]="frameworkMeta[idx]?.badgeClass || 'bg-slate-100 text-slate-700 border-slate-200'"
-                        class="px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider rounded border"
-                      >
-                        {{ frameworkMeta[idx]?.badge || ('Option ' + (idx + 1)) }}
-                      </span>
-                      <span class="text-xs font-semibold text-slate-800">
-                        {{ frameworkMeta[idx]?.name }}
-                      </span>
-                    </div>
-                    <p class="text-[11px] text-slate-500 mt-0.5">
+                    <span
+                      [ngClass]="frameworkMeta[idx]?.badgeClass || 'bg-slate-100 text-slate-700 border-slate-200'"
+                      class="px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider rounded-md border"
+                    >
+                      {{ frameworkMeta[idx]?.badge || ('Option ' + (idx + 1)) }}
+                    </span>
+                    <h4 class="text-xs font-bold text-slate-900 mt-1.5">
+                      {{ frameworkMeta[idx]?.name }}
+                    </h4>
+                    <p class="text-[11px] text-slate-500 mt-0.5 leading-snug">
                       {{ frameworkMeta[idx]?.subtitle }}
                     </p>
                   </div>
 
-                  <!-- Copy To Clipboard Action -->
+                  <!-- Copy Button -->
                   <button
                     type="button"
                     (click)="copyAdCopy(copy, idx, frameworkMeta[idx]?.badge || 'Ad')"
-                    class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-2xs cursor-pointer"
+                    class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 transition-colors shadow-2xs cursor-pointer"
                   >
                     <svg *ngIf="copiedAdIndex !== idx" class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
                     </svg>
                     <svg *ngIf="copiedAdIndex === idx" class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 13l4 4L19 7"></path>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                     </svg>
                     <span>{{ copiedAdIndex === idx ? 'Copied' : 'Copy' }}</span>
                   </button>
@@ -411,93 +549,102 @@
                   {{ copy }}
                 </p>
               </div>
+
+              <!-- Footer info -->
+              <div class="mt-5 pt-3 border-t border-slate-200/60 flex items-center justify-between text-[10px] text-slate-400 font-medium">
+                <span>Ready for Ads Manager</span>
+                <span>Direct-Response</span>
+              </div>
             </div>
           </div>
-
-          <div class="mt-6 pt-3.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-            <span>Direct-Response Frameworks</span>
-            <span>Formatted for Meta & TikTok Ads Manager</span>
-          </div>
-        </div>
+        </section>
 
         <!-- CARD 3: TARGET AUDIENCE & HIGH-INTENT KEYWORDS -->
-        <div class="lg:col-span-5 bg-white rounded-xl shadow-xs border border-slate-200 p-6 flex flex-col justify-between">
-          <div>
-            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-              <div class="flex items-center gap-2.5">
-                <div class="p-2 rounded-lg bg-slate-100 text-slate-900 border border-slate-200">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                  </svg>
-                </div>
-                <div>
-                  <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Audience & Targeting Intel</h3>
-                  <p class="text-xs text-slate-500">Demographic brackets & commercial search tags</p>
-                </div>
+        <section class="bg-white rounded-2xl shadow-lg shadow-slate-200/50 border border-slate-200/90 p-6 sm:p-8">
+          <div class="flex items-center justify-between pb-5 border-b border-slate-100">
+            <div class="flex items-center gap-3">
+              <div class="p-2.5 rounded-xl bg-teal-50 text-teal-600 border border-teal-100 shadow-xs">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
               </div>
-              <span class="text-xs font-mono font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                Targeting
-              </span>
+              <div>
+                <h3 class="text-base font-bold text-slate-900 tracking-tight">Audience & Targeting Intelligence</h3>
+                <p class="text-xs text-slate-500">Demographic brackets, Meta Ads Manager interests, and high-intent tags</p>
+              </div>
             </div>
+            <span class="text-xs font-bold text-teal-700 bg-teal-50 px-3 py-1 rounded-full border border-teal-200">
+              Targeting Ready
+            </span>
+          </div>
 
-            <!-- Target Audience Segments -->
-            <div class="mt-5">
-              <h4 class="text-xs font-semibold text-slate-700 mb-3 flex items-center justify-between">
-                <span>Audience Personas (Click to copy)</span>
+          <!-- 2 Columns: Personas (Left) + Keywords (Right) -->
+          <div class="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            <!-- Left: 3 Target Audience Personas -->
+            <div class="lg:col-span-7">
+              <h4 class="text-xs font-bold text-slate-700 mb-3 uppercase tracking-wider flex items-center justify-between">
+                <span>🎯 Target Audience Personas (Click to copy)</span>
                 <span class="text-[11px] text-slate-400 font-normal">3 Segments</span>
               </h4>
-              <div class="space-y-2.5">
+              <div class="space-y-3">
                 <div
                   *ngFor="let audience of campaignResult.marketing.targetAudience; let idx = index"
                   (click)="copyAudience(audience, idx)"
-                  class="p-3 rounded-lg bg-slate-50 hover:bg-slate-100/80 border border-slate-200 flex items-start gap-3 transition-colors cursor-pointer group"
-                  title="Click to copy segment"
+                  [ngClass]="idx === 0 ? 'bg-indigo-50/50 border-indigo-100/90 hover:bg-indigo-50' : idx === 1 ? 'bg-violet-50/50 border-violet-100/90 hover:bg-violet-50' : 'bg-emerald-50/50 border-emerald-100/90 hover:bg-emerald-50'"
+                  class="p-4 rounded-xl border flex items-start gap-3.5 transition-all cursor-pointer shadow-2xs group"
+                  title="Click to copy audience segment"
                 >
-                  <div class="h-5 w-5 rounded bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                  <div
+                    [ngClass]="idx === 0 ? 'bg-indigo-600 text-white' : idx === 1 ? 'bg-violet-600 text-white' : 'bg-emerald-600 text-white'"
+                    class="h-6 w-6 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 shadow-xs"
+                  >
                     {{ idx + 1 }}
                   </div>
                   <div class="flex-1">
-                    <p class="text-xs text-slate-700 font-normal leading-relaxed group-hover:text-slate-900">
+                    <p class="text-xs text-slate-800 font-medium leading-relaxed">
                       {{ audience }}
                     </p>
                   </div>
-                  <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 shrink-0 mt-0.5 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                  <svg class="w-4 h-4 text-slate-400 group-hover:text-slate-700 shrink-0 mt-0.5 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
                   </svg>
                 </div>
               </div>
             </div>
 
-            <!-- High-Intent Keywords & Hashtags -->
-            <div class="mt-6">
-              <h4 class="text-xs font-semibold text-slate-700 mb-2.5 flex items-center justify-between">
-                <span>High-Intent Commercial Tags</span>
-                <span class="text-[11px] text-slate-400 font-normal">Instant clipboard copy</span>
+            <!-- Right: High-Intent Keywords & Hashtags -->
+            <div class="lg:col-span-5">
+              <h4 class="text-xs font-bold text-slate-700 mb-3 uppercase tracking-wider flex items-center justify-between">
+                <span>🏷️ High-Intent Keywords & Hashtags</span>
+                <span class="text-[11px] text-slate-400 font-normal">Click tag to copy</span>
               </h4>
-              <div class="flex flex-wrap gap-2">
-                <button
-                  *ngFor="let keyword of campaignResult.marketing.keywords"
-                  type="button"
-                  (click)="copyKeyword(keyword)"
-                  class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-mono font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors shadow-2xs cursor-pointer group"
-                  [title]="'Click to copy: ' + keyword"
-                >
-                  <span>{{ keyword }}</span>
-                  <span *ngIf="copiedKeyword === keyword" class="text-[10px] text-emerald-600 font-bold font-sans">✓</span>
-                </button>
+              <div class="p-4 rounded-xl bg-slate-50/80 border border-slate-200/90">
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    *ngFor="let keyword of campaignResult.marketing.keywords"
+                    type="button"
+                    (click)="copyKeyword(keyword)"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium bg-white hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 text-slate-700 border border-slate-200/90 transition-all shadow-2xs cursor-pointer group"
+                    [title]="'Click to copy: ' + keyword"
+                  >
+                    <span>{{ keyword }}</span>
+                    <span *ngIf="copiedKeyword === keyword" class="text-[10px] text-emerald-600 font-bold font-sans">✓</span>
+                  </button>
+                </div>
+                <p class="mt-4 text-[11px] text-slate-400 leading-relaxed border-t border-slate-200/60 pt-3">
+                  Optimized for Meta Ads Manager detailed targeting & Google high-commercial search intent.
+                </p>
               </div>
             </div>
-          </div>
 
-          <div class="mt-6 pt-3.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-            <span>Interests & Demographics</span>
-            <span>Optimized for Ads Manager Search</span>
           </div>
-        </div>
+        </section>
 
       </div>
 
-    </div>
+    </main>
 
-  </main>
+  </div>
+
 </div>
