@@ -1,0 +1,33 @@
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes indeterminate {
+  0% {
+    margin-left: -50%;
+    width: 50%;
+  }
+  50% {
+    margin-left: 25%;
+    width: 60%;
+  }
+  100% {
+    margin-left: 100%;
+    width: 50%;
+  }
+}
+
+.animate-indeterminate {
+  animation: indeterminate 1.8s infinite ease-in-out;
+}

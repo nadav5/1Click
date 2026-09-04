@@ -1,0 +1,15 @@
+{
+  "name": "1click-to-campaign",
+  "version": "1.0.0",
+  "description": "1-Click to Campaign: Dropshipping Marketing SaaS POC (NestJS, Angular, Tailwind CSS, Puppeteer, Gemini AI, FFmpeg)",
+  "scripts": {
+    "start": "start.bat",
+    "start:backend": "cd backend && npm run start:dev",
+    "start:frontend": "cd frontend && npm start",
+    "build": "npm run build --prefix backend && npm run build --prefix frontend",
+    "test": "npm run test --prefix backend && npm run test --prefix frontend"
+  },
+  "keywords": ["dropshipping", "ai", "puppeteer", "ffmpeg", "gemini", "nestjs", "angular", "tailwind"],
+  "author": "",
+  "license": "ISC"
+}
