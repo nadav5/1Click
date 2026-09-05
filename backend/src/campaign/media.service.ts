@@ -101,30 +101,19 @@ export class MediaProcessingService {
   }
 
   /**
-   * Ensures the list contains at least 4 valid URLs.
-   * If valid scraped product URLs exist, cycle them so the user sees the real product across all 4 frames.
+   * Ensures the list contains at least 4 valid URLs by cycling the real scraped product images.
    */
   private prepareImageUrlList(urls: string[]): string[] {
     const valid = urls.filter((u) => u && typeof u === 'string');
-    if (valid.length >= 4) return valid.slice(0, 4);
-
-    if (valid.length > 0) {
-      const result = [...valid];
-      while (result.length < 4) {
-        result.push(valid[result.length % valid.length]);
-      }
-      return result;
+    if (valid.length === 0) {
+      throw new Error('No valid product image URLs provided for media processing.');
     }
 
-    // High quality neutral e-commerce studio photography if zero URLs were passed
-    const neutralFallbacks = [
-      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=1080&q=80',
-      'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=1080&q=80',
-      'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=1080&q=80',
-      'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=1080&q=80',
-    ];
-
-    return neutralFallbacks;
+    const result = [...valid];
+    while (result.length < 4) {
+      result.push(valid[result.length % valid.length]);
+    }
+    return result.slice(0, 4);
   }
 
   /**

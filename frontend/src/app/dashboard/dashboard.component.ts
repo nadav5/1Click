@@ -235,14 +235,15 @@ export class DashboardComponent implements OnDestroy {
       },
       error: (err: Error) => {
         this.clearTimers();
-        this.errorMessage = err.message || 'An unexpected error occurred while generating campaign assets.';
+        this.campaignResult = null;
+        this.errorMessage = err.message || 'Could not extract product data from this link. Please verify the URL.';
         this.isLoading = false;
         this.loadingStep = '';
         this.cdr.detectChanges();
 
         this.Toast.fire({
           icon: 'error',
-          title: 'Campaign generation failed. Please verify the URL.',
+          title: this.errorMessage,
         });
       },
     });

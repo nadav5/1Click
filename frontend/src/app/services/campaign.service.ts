@@ -38,6 +38,10 @@ export class CampaignService {
             errorMessage = Array.isArray(error.error.message)
               ? error.error.message.join(', ')
               : error.error.message;
+          } else if (typeof error.error === 'string' && error.error.trim().length > 0) {
+            errorMessage = error.error;
+          } else if (error.status === 400 || error.status === 422) {
+            errorMessage = 'Could not extract product data from this link. Please verify the URL.';
           } else if (error.status === 0) {
             errorMessage =
               `Cannot connect to backend service at ${this.baseUrl}. Please verify the Render service is running or check your network connection.`;
