@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { MarketingData, ScrapedProduct } from './campaign.interface.js';
 
@@ -7,17 +8,20 @@ export class AiContentService implements OnModuleInit {
   private readonly logger = new Logger(AiContentService.name);
   private readonly modelName = 'gemini-1.5-flash';
 
+  constructor(private readonly configService: ConfigService) {}
+
   onModuleInit(): void {
-    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    const rawKey = this.configService.get<string>('GEMINI_API_KEY');
+    const apiKey = rawKey?.trim().replace(/^["']|["']$/g, '');
     if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY_HERE') {
       this.logger.warn(
-        '⚠️ [STARTUP WARNING] GEMINI_API_KEY is undefined, empty, or missing in environment variables! ' +
+        '⚠️ [STARTUP WARNING] GEMINI_API_KEY is undefined, empty, or missing in ConfigService! ' +
           'Please configure GEMINI_API_KEY in the Render service settings (Environment tab). ' +
           'Requests will automatically use the dynamic algorithmic copy generator.',
       );
     } else {
       this.logger.log(
-        `✅ [STARTUP CHECK] GEMINI_API_KEY is configured (Key exists: true, length: ${apiKey.length}). Target model: "${this.modelName}".`,
+        `✅ [STARTUP CHECK] GEMINI_API_KEY is configured in ConfigService (Key exists: true, length: ${apiKey.length}). Target model: "${this.modelName}".`,
       );
     }
   }
@@ -32,13 +36,12 @@ export class AiContentService implements OnModuleInit {
   async generateMarketingData(productData: ScrapedProduct): Promise<MarketingData> {
     this.logger.log(`Generating dynamic marketing copy for: "${productData.title}"`);
 
-    const apiKey = (process.env.GEMINI_API_KEY || '').trim();
-    const keyExists = !!(apiKey && apiKey !== 'YOUR_GEMINI_API_KEY_HERE');
+    const rawApiKey = this.configService.get<string>('GEMINI_API_KEY');
+    const apiKey = rawApiKey?.trim().replace(/^["']|["']$/g, '');
 
-    if (!keyExists) {
-      this.logger.warn(
-        `[AiContentService] Skipping Gemini API call because GEMINI_API_KEY is missing or empty (Key exists: ${keyExists}). Using dynamic algorithmic generator.`,
-      );
+    if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY_HERE') {
+      this.logger.error('API Key is missing or undefined from ConfigService!');
+      this.logger.warn('Falling back to dynamic algorithmic copy generator.');
       return this.generateFallbackMarketingData(productData);
     }
 
@@ -132,7 +135,7 @@ Return ONLY a valid, raw JSON object (no markdown formatting, no code blocks, no
 
     try {
       this.logger.log(`Invoking Gemini API using model: "${this.modelName}"...`);
-      const genAI = new GoogleGenerativeAI(apiKey);
+      const genAI = new GoogleGenerativeAI(apiKey.trim());
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
       const response = await model.generateContent(prompt);
@@ -162,7 +165,7 @@ Return ONLY a valid, raw JSON object (no markdown formatting, no code blocks, no
       this.logger.error(
         `[AiContentService] Gemini API generation failed for "${productData.title}". ` +
           `Model: "gemini-1.5-flash", ` +
-          `Key exists: ${keyExists}, ` +
+          `Key length: ${apiKey.length}, ` +
           `Error: ${error?.message || error}. ` +
           `Stack: ${error?.stack || 'N/A'}. ` +
           `Falling back to dynamic algorithmic copy generator.`,
