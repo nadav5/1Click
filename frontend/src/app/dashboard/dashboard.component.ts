@@ -1,9 +1,9 @@
-﻿import { Component, ChangeDetectorRef } from '@angular/core';
+import { Component, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import Swal from 'sweetalert2';
 import { CampaignService } from '../services/campaign.service';
-import { CampaignResponse } from '../models/campaign.model';
+import { CampaignResponse, ProductReview } from '../models/campaign.model';
 
 export interface AdFrameworkMeta {
   badge: string;
@@ -64,6 +64,7 @@ export class DashboardComponent {
   copiedAdIndex: number | null = null;
   copiedKeyword: string | null = null;
   copiedAudienceIndex: number | null = null;
+  copiedReviewIndex: number | null = null;
 
   /**
    * Metadata for the 3 direct-response ad frameworks.
@@ -292,6 +293,46 @@ export class DashboardComponent {
 
       setTimeout(() => {
         this.copiedAudienceIndex = null;
+        this.cdr.detectChanges();
+      }, 1500);
+    } catch {
+      this.Toast.fire({
+        icon: 'error',
+        title: 'Failed to write to clipboard',
+      });
+    }
+  }
+
+  /**
+   * Helper to retrieve verified reviews from marketing response or scraped product.
+   */
+  get reviewsList(): ProductReview[] {
+    if (!this.campaignResult) return [];
+    if (
+      this.campaignResult.marketing.customerReviews &&
+      this.campaignResult.marketing.customerReviews.length > 0
+    ) {
+      return this.campaignResult.marketing.customerReviews;
+    }
+    return this.campaignResult.product.reviews || [];
+  }
+
+  /**
+   * Copies a customer review quote to clipboard.
+   */
+  async copyReview(review: ProductReview, index: number): Promise<void> {
+    try {
+      const quoteText = `"${review.text}" - ${review.author}`;
+      await navigator.clipboard.writeText(quoteText);
+      this.copiedReviewIndex = index;
+
+      this.Toast.fire({
+        icon: 'success',
+        title: `Customer review quote copied`,
+      });
+
+      setTimeout(() => {
+        this.copiedReviewIndex = null;
         this.cdr.detectChanges();
       }, 1500);
     } catch {
