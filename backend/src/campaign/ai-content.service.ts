@@ -1,21 +1,41 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { MarketingData, ScrapedProduct } from './campaign.interface.js';
 
 @Injectable()
-export class AiContentService {
+export class AiContentService implements OnModuleInit {
   private readonly logger = new Logger(AiContentService.name);
   private genAI: GoogleGenerativeAI | null = null;
-  private readonly modelName: string;
+  private readonly modelName: string = 'gemini-1.5-flash';
 
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY;
-    this.modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash-latest';
+    this.initGeminiClient();
+  }
 
+  /**
+   * Lifecycle hook to log explicit startup diagnostics for the Gemini API configuration.
+   */
+  onModuleInit(): void {
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY_HERE') {
+      this.logger.warn(
+        '⚠️ [STARTUP WARNING] GEMINI_API_KEY is undefined, empty, or missing in environment variables! ' +
+          'Please configure GEMINI_API_KEY in the Render service settings (Environment tab). ' +
+          'Requests will automatically use the dynamic algorithmic copy generator.',
+      );
+    } else {
+      this.logger.log(
+        `✅ [STARTUP CHECK] GEMINI_API_KEY is configured (Key exists: true, length: ${apiKey.length}). Target model: "${this.modelName}".`,
+      );
+    }
+  }
+
+  private initGeminiClient(): void {
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
     if (apiKey && apiKey !== 'YOUR_GEMINI_API_KEY_HERE') {
       try {
         this.genAI = new GoogleGenerativeAI(apiKey);
-        this.logger.log(`Google Gemini initialized successfully with model: ${this.modelName}`);
+        this.logger.log(`Google Gemini client initialized successfully with model: "${this.modelName}"`);
       } catch (err: any) {
         this.logger.error(`Failed to initialize GoogleGenerativeAI: ${err.message}`);
       }
@@ -36,8 +56,17 @@ export class AiContentService {
   async generateMarketingData(productData: ScrapedProduct): Promise<MarketingData> {
     this.logger.log(`Generating dynamic marketing copy for: "${productData.title}"`);
 
+    const keyExists = !!(
+      process.env.GEMINI_API_KEY &&
+      process.env.GEMINI_API_KEY.trim().length > 0 &&
+      process.env.GEMINI_API_KEY !== 'YOUR_GEMINI_API_KEY_HERE'
+    );
+
     // If Gemini client is not initialized, generate algorithmic marketing data
     if (!this.genAI) {
+      this.logger.warn(
+        `[AiContentService] Skipping Gemini API call because client is not initialized (Key exists: ${keyExists}). Using dynamic algorithmic generator.`,
+      );
       return this.generateFallbackMarketingData(productData);
     }
 
@@ -129,64 +158,50 @@ Return ONLY a valid, raw JSON object (no markdown formatting, no code blocks, no
 }
 `;
 
-    // Candidate models to query with fallback progression
-    const candidateModels = [
-      this.modelName,
-      'gemini-1.5-flash-latest',
-      'gemini-1.5-pro',
-      'gemini-2.0-flash',
-    ].filter((m, idx, arr) => arr.indexOf(m) === idx);
+    try {
+      this.logger.log(`Invoking Gemini API using model: "${this.modelName}"...`);
+      const model = this.genAI.getGenerativeModel({
+        model: this.modelName,
+        generationConfig: {
+          temperature: 0.7,
+          responseMimeType: 'application/json',
+        },
+      });
 
-    let parsed: MarketingData | null = null;
-    let lastError: Error | null = null;
+      const response = await model.generateContent(prompt);
+      const rawText = response.response.text();
 
-    for (const modelCandidate of candidateModels) {
-      try {
-        this.logger.log(`Attempting Gemini generation with model: ${modelCandidate}`);
-        const model = this.genAI.getGenerativeModel({
-          model: modelCandidate,
-          generationConfig: {
-            temperature: 0.7,
-            responseMimeType: 'application/json',
-          },
-        });
+      // Clean response text to ensure clean JSON parsing
+      const cleanedJson = this.extractJsonString(rawText);
+      const parsed: MarketingData = JSON.parse(cleanedJson);
 
-        const response = await model.generateContent(prompt);
-        const rawText = response.response.text();
-
-        // Clean response text to ensure clean JSON parsing
-        const cleanedJson = this.extractJsonString(rawText);
-        const candidateParsed: MarketingData = JSON.parse(cleanedJson);
-
-        // Validate structure
-        if (
-          Array.isArray(candidateParsed.facebookAdCopies) &&
-          Array.isArray(candidateParsed.targetAudience) &&
-          Array.isArray(candidateParsed.keywords)
-        ) {
-          if (!candidateParsed.customerReviews || candidateParsed.customerReviews.length === 0) {
-            candidateParsed.customerReviews = productData.reviews ? productData.reviews.slice(0, 6) : [];
-          }
-          parsed = candidateParsed;
-          this.logger.log(`Successfully generated dynamic marketing copy for "${productData.title}" using model: ${modelCandidate}`);
-          break;
+      // Validate structure
+      if (
+        Array.isArray(parsed.facebookAdCopies) &&
+        Array.isArray(parsed.targetAudience) &&
+        Array.isArray(parsed.keywords)
+      ) {
+        if (!parsed.customerReviews || parsed.customerReviews.length === 0) {
+          parsed.customerReviews = productData.reviews ? productData.reviews.slice(0, 6) : [];
         }
-      } catch (err: any) {
-        lastError = err;
-        this.logger.warn(
-          `Gemini generation failed with model "${modelCandidate}": ${err.message}. Trying next model candidate if available...`,
+        this.logger.log(
+          `Successfully generated dynamic marketing copy for "${productData.title}" from Gemini API (${this.modelName}).`,
         );
+        return parsed;
       }
-    }
 
-    if (parsed) {
-      return parsed;
+      throw new Error('Parsed response does not match expected interface');
+    } catch (error: any) {
+      this.logger.error(
+        `[AiContentService] Gemini API generation failed for "${productData.title}". ` +
+          `Model: "${this.modelName}", ` +
+          `Key exists: ${keyExists}, ` +
+          `Error: ${error?.message || error}. ` +
+          `Stack: ${error?.stack || 'N/A'}. ` +
+          `Falling back to dynamic algorithmic copy generator.`,
+      );
+      return this.generateFallbackMarketingData(productData);
     }
-
-    this.logger.error(
-      `[AiContentService] All Gemini model attempts failed for "${productData.title}": ${lastError?.message}. Falling back to dynamic algorithmic copy generator.`,
-    );
-    return this.generateFallbackMarketingData(productData);
   }
 
   /**
