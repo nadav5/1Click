@@ -5,16 +5,8 @@ import { MarketingData, ScrapedProduct } from './campaign.interface.js';
 @Injectable()
 export class AiContentService implements OnModuleInit {
   private readonly logger = new Logger(AiContentService.name);
-  private genAI: GoogleGenerativeAI | null = null;
-  private readonly modelName: string = 'gemini-1.5-flash';
+  private readonly modelName = 'gemini-1.5-flash';
 
-  constructor() {
-    this.initGeminiClient();
-  }
-
-  /**
-   * Lifecycle hook to log explicit startup diagnostics for the Gemini API configuration.
-   */
   onModuleInit(): void {
     const apiKey = process.env.GEMINI_API_KEY?.trim();
     if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY_HERE') {
@@ -30,22 +22,6 @@ export class AiContentService implements OnModuleInit {
     }
   }
 
-  private initGeminiClient(): void {
-    const apiKey = process.env.GEMINI_API_KEY?.trim();
-    if (apiKey && apiKey !== 'YOUR_GEMINI_API_KEY_HERE') {
-      try {
-        this.genAI = new GoogleGenerativeAI(apiKey);
-        this.logger.log(`Google Gemini client initialized successfully with model: "${this.modelName}"`);
-      } catch (err: any) {
-        this.logger.error(`Failed to initialize GoogleGenerativeAI: ${err.message}`);
-      }
-    } else {
-      this.logger.warn(
-        'GEMINI_API_KEY not configured in environment. Dynamic algorithmic copy generator will be used until an API key is provided.',
-      );
-    }
-  }
-
   /**
    * Generates viral dropshipping marketing copy, target audience segments,
    * high-intent e-commerce keywords, and top analyzed customer reviews for the given product.
@@ -56,16 +32,12 @@ export class AiContentService implements OnModuleInit {
   async generateMarketingData(productData: ScrapedProduct): Promise<MarketingData> {
     this.logger.log(`Generating dynamic marketing copy for: "${productData.title}"`);
 
-    const keyExists = !!(
-      process.env.GEMINI_API_KEY &&
-      process.env.GEMINI_API_KEY.trim().length > 0 &&
-      process.env.GEMINI_API_KEY !== 'YOUR_GEMINI_API_KEY_HERE'
-    );
+    const apiKey = (process.env.GEMINI_API_KEY || '').trim();
+    const keyExists = !!(apiKey && apiKey !== 'YOUR_GEMINI_API_KEY_HERE');
 
-    // If Gemini client is not initialized, generate algorithmic marketing data
-    if (!this.genAI) {
+    if (!keyExists) {
       this.logger.warn(
-        `[AiContentService] Skipping Gemini API call because client is not initialized (Key exists: ${keyExists}). Using dynamic algorithmic generator.`,
+        `[AiContentService] Skipping Gemini API call because GEMINI_API_KEY is missing or empty (Key exists: ${keyExists}). Using dynamic algorithmic generator.`,
       );
       return this.generateFallbackMarketingData(productData);
     }
@@ -160,13 +132,8 @@ Return ONLY a valid, raw JSON object (no markdown formatting, no code blocks, no
 
     try {
       this.logger.log(`Invoking Gemini API using model: "${this.modelName}"...`);
-      const model = this.genAI.getGenerativeModel({
-        model: this.modelName,
-        generationConfig: {
-          temperature: 0.7,
-          responseMimeType: 'application/json',
-        },
-      });
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
       const response = await model.generateContent(prompt);
       const rawText = response.response.text();
@@ -185,7 +152,7 @@ Return ONLY a valid, raw JSON object (no markdown formatting, no code blocks, no
           parsed.customerReviews = productData.reviews ? productData.reviews.slice(0, 6) : [];
         }
         this.logger.log(
-          `Successfully generated dynamic marketing copy for "${productData.title}" from Gemini API (${this.modelName}).`,
+          `Successfully generated dynamic marketing copy for "${productData.title}" from Gemini API (gemini-1.5-flash).`,
         );
         return parsed;
       }
@@ -194,7 +161,7 @@ Return ONLY a valid, raw JSON object (no markdown formatting, no code blocks, no
     } catch (error: any) {
       this.logger.error(
         `[AiContentService] Gemini API generation failed for "${productData.title}". ` +
-          `Model: "${this.modelName}", ` +
+          `Model: "gemini-1.5-flash", ` +
           `Key exists: ${keyExists}, ` +
           `Error: ${error?.message || error}. ` +
           `Stack: ${error?.stack || 'N/A'}. ` +
