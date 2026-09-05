@@ -10,7 +10,7 @@ export class AiContentService {
 
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
-    this.modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+    this.modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash-latest';
 
     if (apiKey && apiKey !== 'YOUR_GEMINI_API_KEY_HERE') {
       try {
@@ -129,43 +129,64 @@ Return ONLY a valid, raw JSON object (no markdown formatting, no code blocks, no
 }
 `;
 
-    try {
-      const model = this.genAI.getGenerativeModel({
-        model: this.modelName,
-        generationConfig: {
-          temperature: 0.7,
-          responseMimeType: 'application/json',
-        },
-      });
+    // Candidate models to query with fallback progression
+    const candidateModels = [
+      this.modelName,
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-pro',
+      'gemini-2.0-flash',
+    ].filter((m, idx, arr) => arr.indexOf(m) === idx);
 
-      const response = await model.generateContent(prompt);
-      const rawText = response.response.text();
+    let parsed: MarketingData | null = null;
+    let lastError: Error | null = null;
 
-      // Clean response text to ensure clean JSON parsing
-      const cleanedJson = this.extractJsonString(rawText);
-      const parsed: MarketingData = JSON.parse(cleanedJson);
+    for (const modelCandidate of candidateModels) {
+      try {
+        this.logger.log(`Attempting Gemini generation with model: ${modelCandidate}`);
+        const model = this.genAI.getGenerativeModel({
+          model: modelCandidate,
+          generationConfig: {
+            temperature: 0.7,
+            responseMimeType: 'application/json',
+          },
+        });
 
-      // Validate structure
-      if (
-        Array.isArray(parsed.facebookAdCopies) &&
-        Array.isArray(parsed.targetAudience) &&
-        Array.isArray(parsed.keywords)
-      ) {
-        // Ensure customerReviews is populated or fallback to product reviews
-        if (!parsed.customerReviews || parsed.customerReviews.length === 0) {
-          parsed.customerReviews = productData.reviews ? productData.reviews.slice(0, 6) : [];
+        const response = await model.generateContent(prompt);
+        const rawText = response.response.text();
+
+        // Clean response text to ensure clean JSON parsing
+        const cleanedJson = this.extractJsonString(rawText);
+        const candidateParsed: MarketingData = JSON.parse(cleanedJson);
+
+        // Validate structure
+        if (
+          Array.isArray(candidateParsed.facebookAdCopies) &&
+          Array.isArray(candidateParsed.targetAudience) &&
+          Array.isArray(candidateParsed.keywords)
+        ) {
+          if (!candidateParsed.customerReviews || candidateParsed.customerReviews.length === 0) {
+            candidateParsed.customerReviews = productData.reviews ? productData.reviews.slice(0, 6) : [];
+          }
+          parsed = candidateParsed;
+          this.logger.log(`Successfully generated dynamic marketing copy for "${productData.title}" using model: ${modelCandidate}`);
+          break;
         }
-        this.logger.log(`Successfully generated dynamic marketing copy for "${productData.title}" from Gemini API.`);
-        return parsed;
+      } catch (err: any) {
+        lastError = err;
+        this.logger.warn(
+          `Gemini generation failed with model "${modelCandidate}": ${err.message}. Trying next model candidate if available...`,
+        );
       }
-
-      throw new Error('Parsed response does not match expected interface');
-    } catch (error: any) {
-      this.logger.error(
-        `[AiContentService] Gemini API generation failed for "${productData.title}": ${error?.message || error}. Stack: ${error?.stack || 'N/A'}. Falling back to dynamic algorithmic copy generator.`,
-      );
-      return this.generateFallbackMarketingData(productData);
     }
+
+    if (parsed) {
+      return parsed;
+    }
+
+    this.logger.error(
+      `[AiContentService] All Gemini model attempts failed for "${productData.title}": ${lastError?.message}. Falling back to dynamic algorithmic copy generator.`,
+    );
+    return this.generateFallbackMarketingData(productData);
   }
 
   /**

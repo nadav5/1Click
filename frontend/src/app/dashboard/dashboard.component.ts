@@ -42,9 +42,9 @@ export class DashboardComponent implements OnDestroy {
   ];
 
   /**
-   * Input model for the AliExpress product URL.
+   * Input model for the AliExpress product URL (empty by default for user input).
    */
-  productUrl: string = 'https://www.aliexpress.com/item/1005006123456789-Magnetic-Wireless-Desk-Lamp.html';
+  productUrl: string = '';
 
   /**
    * UI processing and loading states.
@@ -92,24 +92,6 @@ export class DashboardComponent implements OnDestroy {
       badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
       name: 'Customer Narrative & Trust',
       subtitle: 'Relatable scenario that overcomes buyer skepticism with social proof.',
-    },
-  ];
-
-  /**
-   * Sample products for quick testing.
-   */
-  readonly sampleUrls = [
-    {
-      label: 'Smart Wireless Desk Lamp',
-      url: 'https://www.aliexpress.com/item/1005006123456789-Magnetic-Wireless-Desk-Lamp.html',
-    },
-    {
-      label: 'Portable Blender Juicer',
-      url: 'https://www.aliexpress.com/item/1005005987654321-Portable-Blender-Juicer.html',
-    },
-    {
-      label: 'Cordless Car Vacuum',
-      url: 'https://www.aliexpress.com/item/1005004112233445-High-Power-Cordless-Car-Vacuum.html',
     },
   ];
 
@@ -164,18 +146,8 @@ export class DashboardComponent implements OnDestroy {
   }
 
   /**
-   * Populates the input field with a demo URL and cleans previous result state.
-   */
-  setSampleUrl(url: string): void {
-    this.productUrl = url;
-    this.errorMessage = null;
-    this.campaignResult = null;
-    this.resetCopiedStates();
-  }
-
-  /**
    * Submits the AliExpress URL to trigger the full 1-Click campaign generation pipeline:
-   * 1. Multi-tier scraping (Axios HTTP + Puppeteer)
+   * 1. Multi-tier scraping (Axios + Cheerio with Googlebot headers)
    * 2. Gemini direct-response AI generation
    * 3. Sharp 1080x1080 resizing & FFmpeg 10s video generation
    */
