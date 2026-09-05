@@ -102,23 +102,29 @@ export class MediaProcessingService {
 
   /**
    * Ensures the list contains at least 4 valid URLs.
+   * If valid scraped product URLs exist, cycle them so the user sees the real product across all 4 frames.
    */
   private prepareImageUrlList(urls: string[]): string[] {
     const valid = urls.filter((u) => u && typeof u === 'string');
     if (valid.length >= 4) return valid.slice(0, 4);
 
-    const fallbacks = [
-      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1080&q=80',
-      'https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=1080&q=80',
-      'https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=1080&q=80',
+    if (valid.length > 0) {
+      const result = [...valid];
+      while (result.length < 4) {
+        result.push(valid[result.length % valid.length]);
+      }
+      return result;
+    }
+
+    // High quality neutral e-commerce studio photography if zero URLs were passed
+    const neutralFallbacks = [
       'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=1080&q=80',
+      'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=1080&q=80',
+      'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=1080&q=80',
+      'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=1080&q=80',
     ];
 
-    const result = [...valid];
-    while (result.length < 4) {
-      result.push(fallbacks[result.length % fallbacks.length]);
-    }
-    return result;
+    return neutralFallbacks;
   }
 
   /**

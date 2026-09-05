@@ -1,4 +1,4 @@
-import { Component, ChangeDetectorRef } from '@angular/core';
+import { Component, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import Swal from 'sweetalert2';
@@ -26,7 +26,7 @@ export interface NavItem {
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css'],
 })
-export class DashboardComponent {
+export class DashboardComponent implements OnDestroy {
   /**
    * Navigation state.
    */
@@ -44,7 +44,7 @@ export class DashboardComponent {
   /**
    * Input model for the AliExpress product URL.
    */
-  productUrl: string = 'https://www.aliexpress.com/item/1005006123456789.html';
+  productUrl: string = 'https://www.aliexpress.com/item/1005006123456789-Magnetic-Wireless-Desk-Lamp.html';
 
   /**
    * UI processing and loading states.
@@ -52,6 +52,11 @@ export class DashboardComponent {
   isLoading: boolean = false;
   loadingStep: string = '';
   errorMessage: string | null = null;
+
+  /**
+   * Timers for progressive step updates.
+   */
+  private stepTimers: any[] = [];
 
   /**
    * The generated campaign response containing product, AI copy, and media assets.
@@ -96,15 +101,15 @@ export class DashboardComponent {
   readonly sampleUrls = [
     {
       label: 'Smart Wireless Desk Lamp',
-      url: 'https://www.aliexpress.com/item/1005006123456789.html',
+      url: 'https://www.aliexpress.com/item/1005006123456789-Magnetic-Wireless-Desk-Lamp.html',
     },
     {
-      label: 'Magnetic ANC Earbuds',
-      url: 'https://www.aliexpress.com/item/1005005987654321.html',
+      label: 'Portable Blender Juicer',
+      url: 'https://www.aliexpress.com/item/1005005987654321-Portable-Blender-Juicer.html',
     },
     {
-      label: 'RGB Floating Speaker',
-      url: 'https://www.aliexpress.com/item/1005004112233445.html',
+      label: 'Cordless Car Vacuum',
+      url: 'https://www.aliexpress.com/item/1005004112233445-High-Power-Cordless-Car-Vacuum.html',
     },
   ];
 
@@ -115,7 +120,7 @@ export class DashboardComponent {
     toast: true,
     position: 'top-end',
     showConfirmButton: false,
-    timer: 2200,
+    timer: 2400,
     timerProgressBar: false,
     didOpen: (toast) => {
       toast.onmouseenter = Swal.stopTimer;
@@ -131,6 +136,10 @@ export class DashboardComponent {
     private readonly campaignService: CampaignService,
     private readonly cdr: ChangeDetectorRef,
   ) {}
+
+  ngOnDestroy(): void {
+    this.clearTimers();
+  }
 
   /**
    * Switch active sidebar navigation tab.
@@ -155,16 +164,18 @@ export class DashboardComponent {
   }
 
   /**
-   * Populates the input field with a demo URL.
+   * Populates the input field with a demo URL and cleans previous result state.
    */
   setSampleUrl(url: string): void {
     this.productUrl = url;
     this.errorMessage = null;
+    this.campaignResult = null;
+    this.resetCopiedStates();
   }
 
   /**
    * Submits the AliExpress URL to trigger the full 1-Click campaign generation pipeline:
-   * 1. Puppeteer scraping
+   * 1. Multi-tier scraping (Axios HTTP + Puppeteer)
    * 2. Gemini direct-response AI generation
    * 3. Sharp 1080x1080 resizing & FFmpeg 10s video generation
    */
@@ -178,54 +189,83 @@ export class DashboardComponent {
       return;
     }
 
-    this.isLoading = true;
-    this.errorMessage = null;
+    // Clean previous state completely
+    this.clearTimers();
+    this.resetCopiedStates();
     this.campaignResult = null;
-    this.loadingStep = 'Launching Puppeteer crawler to extract product imagery & specs...';
+    this.errorMessage = null;
+    this.isLoading = true;
+    this.loadingStep = 'Connecting to AliExpress & extracting product data...';
 
     // Progressive step updates to provide transparent feedback during generation
-    const stepTimer1 = setTimeout(() => {
-      if (this.isLoading) this.loadingStep = 'Extracting product specs, pricing, and high-res gallery...';
-    }, 2500);
+    this.stepTimers.push(
+      setTimeout(() => {
+        if (this.isLoading) this.loadingStep = 'Extracting product specs, pricing, and high-res gallery...';
+      }, 2500),
+    );
 
-    const stepTimer2 = setTimeout(() => {
-      if (this.isLoading) this.loadingStep = 'Prompting Gemini with PAS, AIDA & Story direct-response frameworks...';
-    }, 5500);
+    this.stepTimers.push(
+      setTimeout(() => {
+        if (this.isLoading) this.loadingStep = 'Prompting Gemini with PAS, AIDA & Story direct-response frameworks...';
+      }, 5500),
+    );
 
-    const stepTimer3 = setTimeout(() => {
-      if (this.isLoading) this.loadingStep = 'Sharp 1080x1080 square framing & FFmpeg 10s crossfade video synthesis...';
-    }, 9500);
+    this.stepTimers.push(
+      setTimeout(() => {
+        if (this.isLoading) this.loadingStep = 'Sharp 1080x1080 square framing & FFmpeg 10s crossfade video synthesis...';
+      }, 9500),
+    );
 
     this.campaignService.generateCampaign(this.productUrl).subscribe({
       next: (response: CampaignResponse) => {
-        clearTimeout(stepTimer1);
-        clearTimeout(stepTimer2);
-        clearTimeout(stepTimer3);
+        this.clearTimers();
         this.campaignResult = response;
         this.isLoading = false;
         this.loadingStep = '';
         this.cdr.detectChanges();
 
+        const shortTitle = response.product.title
+          ? response.product.title.slice(0, 32)
+          : 'Product';
+
         this.Toast.fire({
           icon: 'success',
-          title: 'Campaign assets generated successfully',
+          title: `Campaign generated for "${shortTitle}..."`,
         });
       },
       error: (err: Error) => {
-        clearTimeout(stepTimer1);
-        clearTimeout(stepTimer2);
-        clearTimeout(stepTimer3);
-        this.errorMessage = err.message;
+        this.clearTimers();
+        this.errorMessage = err.message || 'An unexpected error occurred while generating campaign assets.';
         this.isLoading = false;
         this.loadingStep = '';
         this.cdr.detectChanges();
 
         this.Toast.fire({
           icon: 'error',
-          title: 'Generation failed. Using resilient fallback.',
+          title: 'Campaign generation failed. Please verify the URL.',
         });
       },
     });
+  }
+
+  /**
+   * Resets all copy-to-clipboard flags.
+   */
+  private resetCopiedStates(): void {
+    this.copiedAdIndex = null;
+    this.copiedKeyword = null;
+    this.copiedAudienceIndex = null;
+    this.copiedReviewIndex = null;
+  }
+
+  /**
+   * Clears all pending progressive loading timers.
+   */
+  private clearTimers(): void {
+    for (const timer of this.stepTimers) {
+      clearTimeout(timer);
+    }
+    this.stepTimers = [];
   }
 
   /**
