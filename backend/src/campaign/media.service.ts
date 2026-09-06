@@ -224,6 +224,18 @@ export class MediaProcessingService {
     rawImageBuffer: Buffer,
     timeoutMs: number = 15000,
   ): Promise<{ buffer: Buffer; isCutout: boolean }> {
+    const isRender = process.env.RENDER === 'true' || process.env.IS_RENDER === 'true';
+    const isExplicitlyEnabled = process.env.ENABLE_IMGLY === 'true';
+
+    // Prevent kernel OOM SIGKILL crash on Render Free Tier (512MB RAM limit).
+    // Local benchmarks confirm @imgly ONNX runtime spikes native RSS to 1025MB, triggering SIGKILL and 502 Bad Gateway.
+    if (isRender && !isExplicitlyEnabled) {
+      this.logger.warn(
+        '[Smart Composite] Render free tier detected (512MB RAM). Bypassing @imgly ONNX background removal (which requires ~1025MB peak RSS and triggers SIGKILL). Safely preserving server uptime and using original product image.',
+      );
+      return { buffer: rawImageBuffer, isCutout: false };
+    }
+
     try {
       this.logger.log(
         `[Smart Composite] Isolating product with @imgly/background-removal-node (model: 'small', timeout: ${timeoutMs}ms)...`,
@@ -513,7 +525,7 @@ export class MediaProcessingService {
 
     const message = result.isCutout
       ? 'Background removed successfully using imgly small model'
-      : 'Background removal timed out or failed; safely fell back to original image without crashing';
+      : 'Background removal safely bypassed or fell back to original image (Render 512MB RAM protection active to prevent 502 crash)';
 
     this.logger.log(
       `[Diagnostic Completed] Success: ${result.isCutout}, Time: ${timeTakenMs}ms, Heap Delta: ${memoryUsedMb}MB, RSS: ${Math.round((endMem.rss / (1024 * 1024)) * 100) / 100}MB`,

@@ -16,10 +16,14 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Bulletproof CORS
-  app.enableCors({ origin: '*', methods: 'GET,HEAD,PUT,PATCH,POST,DELETE' });
+  app.enableCors({
+    origin: '*',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: '*',
+  });
 
   const port = process.env.PORT ?? 3000;
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
 
   logger.log(`====================================================`);
   logger.log(`?? 1-Click Campaign Backend running at: http://localhost:${port}`);
