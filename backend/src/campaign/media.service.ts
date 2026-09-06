@@ -75,26 +75,34 @@ export class MediaProcessingService {
     const selectedScrapedUrls = this.prepareImageUrlList(imageUrls);
     const primaryScrapedUrl = selectedScrapedUrls[0];
 
-    // Step 1: Isolate Product using @imgly/background-removal-node
-    let transparentProductBuffer: Buffer | null = null;
+    // Step 1: Isolate Product using @imgly/background-removal-node (model: 'small', 15s timeout)
+    let productAssetBuffer: Buffer | null = null;
+    let isCutout = false;
+
     if (primaryScrapedUrl) {
       try {
         this.logger.log(`[Smart Composite] Downloading scraped product image: ${primaryScrapedUrl}`);
         const rawImageBuffer = await this.downloadImageBuffer(primaryScrapedUrl);
 
-        this.logger.log(`[Smart Composite] Removing background with @imgly/background-removal-node...`);
-        const imageBlob = new Blob([new Uint8Array(rawImageBuffer)], { type: 'image/jpeg' });
-        const cutoutBlob = await this.removeBackgroundWithTimeout(imageBlob, 30000);
-        const cutoutArrayBuffer = await cutoutBlob.arrayBuffer();
-        transparentProductBuffer = Buffer.from(cutoutArrayBuffer);
-        this.logger.log(
-          `[Smart Composite] Successfully isolated product cutout (${transparentProductBuffer.length} bytes).`,
-        );
-      } catch (bgErr: any) {
+        const result = await this.removeBackgroundSafe(rawImageBuffer, 15000);
+        productAssetBuffer = result.buffer;
+        isCutout = result.isCutout;
+
+        if (isCutout) {
+          this.logger.log(
+            `[Smart Composite] Successfully isolated product cutout (${productAssetBuffer.length} bytes).`,
+          );
+        } else {
+          this.logger.log(
+            `[Smart Composite] Proceeding with original product image fallback.`,
+          );
+        }
+      } catch (err: any) {
         this.logger.warn(
-          `[Smart Composite] Background removal failed or timed out: ${bgErr.message}. Safely falling back to original scraped images.`,
+          `Background removal failed/timed out, falling back to original image: ${err.message}`,
         );
-        transparentProductBuffer = null;
+        productAssetBuffer = null;
+        isCutout = false;
       }
     }
 
@@ -117,7 +125,7 @@ export class MediaProcessingService {
       let composited = false;
 
       // If transparent cutout is available, fetch empty background and composite with Sharp
-      if (transparentProductBuffer) {
+      if (productAssetBuffer && isCutout) {
         if (i > 0) {
           this.logger.log(`Waiting 2500ms before requesting next Pollinations AI background...`);
           await this.sleep(2500);
@@ -125,7 +133,7 @@ export class MediaProcessingService {
 
         try {
           const bgBuffer = await this.fetchPollinationsBackgroundBuffer(backgroundPrompts[i], i);
-          await this.compositeProductOnBackground(transparentProductBuffer, bgBuffer, outputPath);
+          await this.compositeProductOnBackground(productAssetBuffer, bgBuffer, outputPath);
           composited = true;
           this.logger.log(`[Smart Composite #${i + 1}/4] Successfully created composited image.`);
         } catch (compositeErr: any) {
@@ -208,21 +216,42 @@ export class MediaProcessingService {
   }
 
   /**
-   * Wraps removeBackground with a timeout promise to safely prevent hanging.
+   * Wraps removeBackground with the lightweight 'small' model and a strict 15-second Promise.race timeout.
+   * If removeBackground throws, exceeds 15 seconds, or fails due to memory limits, catches it gracefully,
+   * logs the error, and falls back to resolving with the original image buffer without crashing the server.
    */
-  private async removeBackgroundWithTimeout(
-    imageBlob: Blob,
-    timeoutMs: number = 30000,
-  ): Promise<Blob> {
-    return Promise.race([
-      removeBackground(imageBlob),
-      new Promise<Blob>((_, reject) =>
+  private async removeBackgroundSafe(
+    rawImageBuffer: Buffer,
+    timeoutMs: number = 15000,
+  ): Promise<{ buffer: Buffer; isCutout: boolean }> {
+    try {
+      this.logger.log(
+        `[Smart Composite] Isolating product with @imgly/background-removal-node (model: 'small', timeout: ${timeoutMs}ms)...`,
+      );
+      const imageBlob = new Blob([new Uint8Array(rawImageBuffer)], { type: 'image/jpeg' });
+
+      const removalPromise = removeBackground(imageBlob, {
+        model: 'small',
+        output: { format: 'image/png' },
+      }).then(async (blob) => {
+        const arrayBuf = await blob.arrayBuffer();
+        return { buffer: Buffer.from(arrayBuf), isCutout: true };
+      });
+
+      const timeoutPromise = new Promise<{ buffer: Buffer; isCutout: boolean }>((_, reject) =>
         setTimeout(
-          () => reject(new Error(`Background removal timed out after ${timeoutMs}ms`)),
+          () => reject(new Error(`Background removal timed out after strict ${timeoutMs / 1000}s limit`)),
           timeoutMs,
         ),
-      ),
-    ]);
+      );
+
+      return await Promise.race([removalPromise, timeoutPromise]);
+    } catch (err: any) {
+      this.logger.warn(
+        `Background removal failed/timed out, falling back to original image: ${err.message}`,
+      );
+      return { buffer: rawImageBuffer, isCutout: false };
+    }
   }
 
   /**
