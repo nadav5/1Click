@@ -129,8 +129,8 @@ export class MediaProcessingService {
 
   /**
    * Fetches a photorealistic AI lifestyle image from Pollinations.ai with retry logic.
-   * If a 429 (Too Many Requests) or 500 error is caught, logs a warning, waits 4000ms,
-   * and retries fetching that specific image ONE more time.
+   * If a timeout, 429, or 500 error is caught, logs a warning, waits 5000ms,
+   * and retries fetching that specific image up to 3 total attempts.
    *
    * If it permanently fails after retries, logs the exact error response code and data,
    * then throws an HttpException(500).
@@ -140,7 +140,7 @@ export class MediaProcessingService {
     outputPath: string,
     imageIndex: number,
   ): Promise<void> {
-    const maxAttempts = 2;
+    const maxAttempts = 3;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
@@ -163,16 +163,33 @@ export class MediaProcessingService {
               : String(err.response.data).slice(0, 1000);
         }
 
-        const isRateLimitOrServerError = statusCode === 429 || statusCode === 500;
+        const isTimeout =
+          err.code === 'ECONNABORTED' ||
+          (err.message && err.message.toLowerCase().includes('timeout'));
+        const isRateLimitOrServerError =
+          statusCode === 429 ||
+          statusCode === 500 ||
+          statusCode === 502 ||
+          statusCode === 503 ||
+          statusCode === 504 ||
+          !statusCode;
 
-        if (attempt < maxAttempts && isRateLimitOrServerError) {
+        const isRetryable = isTimeout || isRateLimitOrServerError;
+
+        if (attempt < maxAttempts && isRetryable) {
+          const reason = isTimeout
+            ? 'Timeout reached (60s)'
+            : statusCode
+              ? `HTTP ${statusCode}`
+              : err.code || err.message;
+
           this.logger.warn(
-            `Pollinations AI image #${imageIndex + 1} attempt ${attempt} failed with HTTP ${statusCode}: ${err.message}. Waiting 4000ms before retry. Response data: ${responseData}`,
+            `Pollinations AI image #${imageIndex + 1} attempt ${attempt}/${maxAttempts} failed with ${reason}. Waiting 5000ms before retry. Response data: ${responseData}`,
           );
-          await this.sleep(4000);
+          await this.sleep(5000);
         } else {
           this.logger.error(
-            `Pollinations AI image generation permanently failed for image #${imageIndex + 1}. HTTP Status Code: ${statusCode || 'N/A'}. Error Data: ${responseData}`,
+            `Pollinations AI image generation permanently failed for image #${imageIndex + 1} after ${attempt} attempts. HTTP Status Code: ${statusCode || 'N/A'}. Error Data: ${responseData}`,
             err.stack,
           );
           throw new HttpException(
@@ -193,7 +210,7 @@ export class MediaProcessingService {
 
     const response = await axios.get(pollinationsUrl, {
       responseType: 'arraybuffer',
-      timeout: 25000,
+      timeout: 60000,
       headers: {
         'User-Agent':
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
