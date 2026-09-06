@@ -464,6 +464,77 @@ export class MediaProcessingService {
   }
 
   /**
+   * Diagnostic method to test @imgly/background-removal-node memory and execution on Render free tier.
+   */
+  async testImglyMemory(): Promise<{
+    success: boolean;
+    timeTakenMs: number;
+    memoryUsedMb: number;
+    message: string;
+    details?: any;
+  }> {
+    this.logger.log('Starting live diagnostic for @imgly/background-removal-node...');
+    let sampleBuffer: Buffer;
+    const sampleUrl = 'https://picsum.photos/400/400';
+
+    try {
+      const response = await axios.get(sampleUrl, {
+        responseType: 'arraybuffer',
+        timeout: 10000,
+      });
+      sampleBuffer = Buffer.from(response.data);
+    } catch (err: any) {
+      this.logger.warn(
+        `Failed to download sample image from ${sampleUrl}: ${err.message}. Using synthetic sample image.`,
+      );
+      sampleBuffer = await sharp({
+        create: {
+          width: 400,
+          height: 400,
+          channels: 3,
+          background: { r: 255, g: 255, b: 255 },
+        },
+      })
+        .jpeg()
+        .toBuffer();
+    }
+
+    const startHeap = process.memoryUsage().heapUsed;
+    const startTime = performance.now();
+
+    const result = await this.removeBackgroundSafe(sampleBuffer, 15000);
+
+    const endTime = performance.now();
+    const endMem = process.memoryUsage();
+    const finalHeap = endMem.heapUsed;
+
+    const timeTakenMs = Math.round(endTime - startTime);
+    const memoryUsedMb = Math.round(((finalHeap - startHeap) / (1024 * 1024)) * 100) / 100;
+
+    const message = result.isCutout
+      ? 'Background removed successfully using imgly small model'
+      : 'Background removal timed out or failed; safely fell back to original image without crashing';
+
+    this.logger.log(
+      `[Diagnostic Completed] Success: ${result.isCutout}, Time: ${timeTakenMs}ms, Heap Delta: ${memoryUsedMb}MB, RSS: ${Math.round((endMem.rss / (1024 * 1024)) * 100) / 100}MB`,
+    );
+
+    return {
+      success: result.isCutout,
+      timeTakenMs,
+      memoryUsedMb,
+      message,
+      details: {
+        initialHeapMb: Math.round((startHeap / (1024 * 1024)) * 100) / 100,
+        finalHeapMb: Math.round((finalHeap / (1024 * 1024)) * 100) / 100,
+        rssMb: Math.round((endMem.rss / (1024 * 1024)) * 100) / 100,
+        isCutout: result.isCutout,
+        outputBytes: result.buffer.length,
+      },
+    };
+  }
+
+  /**
    * Resilient fallback slideshow in case xfade filter is unsupported.
    */
   private generateSimpleSlideshow(imagePaths: string[], outputPath: string): Promise<void> {

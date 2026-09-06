@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
   HttpCode,
   HttpStatus,
@@ -26,6 +27,22 @@ export class CampaignController {
     private readonly aiContentService: AiContentService,
     private readonly mediaService: MediaProcessingService,
   ) {}
+
+  /**
+   * GET /api/campaign/test-imgly
+   * Live diagnostic endpoint to test @imgly/background-removal-node memory consumption and resilience.
+   */
+  @Get('test-imgly')
+  async testImgly(): Promise<{
+    success: boolean;
+    timeTakenMs: number;
+    memoryUsedMb: number;
+    message: string;
+    details?: any;
+  }> {
+    this.logger.log('Executing live diagnostic for @imgly memory consumption and resilience...');
+    return await this.mediaService.testImglyMemory();
+  }
 
   /**
    * POST /api/campaign/analyze-text
