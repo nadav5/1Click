@@ -37,14 +37,21 @@ export class MediaProcessingService {
   }
 
   /**
-   * Downloads product images, resizes them with Sharp to 1080x1080,
-   * and stitches them into a 10-second promotional slideshow video using FFmpeg.
+   * Generates lifestyle product images using Pollinations AI (or falls back to scraped images),
+   * resizes them with Sharp to 1080x1080, and stitches them into a 10-second promotional slideshow video.
    *
-   * @param imageUrls List of scraped image URLs
+   * @param imageUrls List of scraped image URLs (used as fallback)
    * @param productId Unique identifier for product
+   * @param title Product title for contextual AI prompts
+   * @param description Product description for contextual AI prompts
    * @returns MediaAssets with local paths and public URLs
    */
-  async processMedia(imageUrls: string[], productId: string): Promise<MediaAssets> {
+  async processMedia(
+    imageUrls: string[],
+    productId: string,
+    title?: string,
+    description?: string,
+  ): Promise<MediaAssets> {
     this.logger.log(`Processing media assets for product ${productId}...`);
 
     // Define storage directory: backend/temp/products/{productId}
@@ -53,30 +60,72 @@ export class MediaProcessingService {
       fs.mkdirSync(tempBaseDir, { recursive: true });
     }
 
-    // Ensure we have at least 4 image candidates
-    const selectedUrls = this.prepareImageUrlList(imageUrls);
+    const selectedScrapedUrls = this.prepareImageUrlList(imageUrls);
 
-    // Download and resize images to 1080x1080 square format
-    const localImagePaths: string[] = [];
-    const publicImageUrls: string[] = [];
+    // Build 4 distinct lifestyle commercial photography prompts
+    const cleanTitle = (title || 'trending modern product')
+      .replace(/[^\w\s-]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 80);
 
-    for (let i = 0; i < 4; i++) {
+    const prompts = [
+      `High-end commercial lifestyle photograph of ${cleanTitle} in a modern beautifully styled room, natural daylight, professional lighting, photorealistic, 8k, sharp focus`,
+      `A person happily using ${cleanTitle} in an everyday modern lifestyle setting, photorealistic, soft warm ambient lighting, 8k, award winning commercial photography`,
+      `Close-up cinematic product shot of ${cleanTitle} with elegant background and shallow depth of field, 8k resolution, crisp detail, commercial aesthetic`,
+      `Minimalist studio advertisement for ${cleanTitle}, clean neutral background, perfect studio illumination, premium sleek product presentation, 8k`,
+    ];
+
+    // Download or generate images concurrently
+    const imageTasks = prompts.map(async (prompt, i) => {
       const filename = `image_${i}.jpg`;
       const outputPath = path.join(tempBaseDir, filename);
 
+      let success = false;
+
+      // 1. Try Pollinations AI free image generation
       try {
-        await this.downloadAndResizeImage(selectedUrls[i], outputPath, i);
-      } catch (err: any) {
+        this.logger.log(`[Media AI #${i + 1}/4] Generating lifestyle image via Pollinations AI...`);
+        await this.fetchPollinationsImage(prompt, outputPath);
+        success = true;
+        this.logger.log(`[Media AI #${i + 1}/4] Successfully generated lifestyle image.`);
+      } catch (pollErr: any) {
         this.logger.warn(
-          `Failed to process image #${i} (${selectedUrls[i]}): ${err.message}. Generating placeholder card.`,
+          `Pollinations AI failed for image #${i + 1} (${pollErr.message}). Falling back to scraped product image.`,
         );
+      }
+
+      // 2. Fallback to scraped product images
+      if (!success) {
+        const fallbackUrl = selectedScrapedUrls[i];
+        if (fallbackUrl) {
+          try {
+            await this.downloadAndResizeImage(fallbackUrl, outputPath, i);
+            success = true;
+            this.logger.log(`[Media Fallback #${i + 1}/4] Successfully downloaded scraped image.`);
+          } catch (scrapeErr: any) {
+            this.logger.warn(
+              `Scraped image #${i + 1} download failed (${scrapeErr.message}). Falling back to gradient card.`,
+            );
+          }
+        }
+      }
+
+      // 3. Fallback to gradient placeholder card
+      if (!success) {
         await this.generatePlaceholderImage(outputPath, i + 1);
       }
 
-      localImagePaths.push(outputPath);
-      // Accessible via static asset route: /temp/products/{productId}/{filename}
-      publicImageUrls.push(`${this.baseUrl}/temp/products/${productId}/${filename}`);
-    }
+      return {
+        outputPath,
+        publicUrl: `${this.baseUrl}/temp/products/${productId}/${filename}`,
+      };
+    });
+
+    const generatedResults = await Promise.all(imageTasks);
+
+    const localImagePaths: string[] = generatedResults.map((r) => r.outputPath);
+    const publicImageUrls: string[] = generatedResults.map((r) => r.publicUrl);
 
     // Generate 10-second slideshow video with crossfade transitions
     const videoFilename = 'promo_video.mp4';
@@ -101,12 +150,44 @@ export class MediaProcessingService {
   }
 
   /**
-   * Ensures the list contains at least 4 valid URLs by cycling the real scraped product images.
+   * Fetches a photorealistic AI lifestyle image from Pollinations.ai and resizes to 1080x1080.
    */
-  private prepareImageUrlList(urls: string[]): string[] {
-    const valid = urls.filter((u) => u && typeof u === 'string');
+  private async fetchPollinationsImage(prompt: string, outputPath: string): Promise<void> {
+    const encodedPrompt = encodeURIComponent(prompt);
+    const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1080&height=1080&nologo=true`;
+
+    const response = await axios.get(pollinationsUrl, {
+      responseType: 'arraybuffer',
+      timeout: 25000,
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+      },
+    });
+
+    if (response.status !== 200 || !response.data || response.data.length < 1000) {
+      throw new Error(`Invalid response received from Pollinations AI (HTTP ${response.status})`);
+    }
+
+    const buffer = Buffer.from(response.data);
+
+    await sharp(buffer)
+      .resize(1080, 1080, {
+        fit: 'cover',
+        position: 'center',
+      })
+      .jpeg({ quality: 90 })
+      .toFile(outputPath);
+  }
+
+  /**
+   * Ensures the list contains at least 4 valid URLs by cycling available images.
+   */
+  private prepareImageUrlList(urls?: string[]): string[] {
+    const valid = (urls || []).filter((u) => u && typeof u === 'string' && u.trim().length > 0);
     if (valid.length === 0) {
-      throw new Error('No valid product image URLs provided for media processing.');
+      return [];
     }
 
     const result = [...valid];

@@ -48,6 +48,31 @@ export interface GenerateCampaignDto {
 }
 
 /**
+ * Response returned by POST /api/campaign/analyze-text.
+ */
+export interface AnalyzeTextResponse {
+  success: boolean;
+  productId: string;
+  product: ScrapedProduct;
+  marketing: MarketingData;
+  productData?: ScrapedProduct;
+  aiTextContext?: MarketingData;
+  timestamp: string;
+  message?: string;
+}
+
+/**
+ * Response returned by POST /api/campaign/generate-media.
+ */
+export interface GenerateMediaResponse {
+  success: boolean;
+  productId: string;
+  media: MediaAssets;
+  timestamp: string;
+  message?: string;
+}
+
+/**
  * Unified response payload returned to the frontend.
  */
 export interface CampaignResponse {

@@ -3,7 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import Swal from 'sweetalert2';
 import { CampaignService } from '../services/campaign.service';
-import { CampaignResponse, ProductReview } from '../models/campaign.model';
+import {
+  CampaignResponse,
+  AnalyzeTextResponse,
+  GenerateMediaResponse,
+  ProductReview,
+} from '../models/campaign.model';
 
 export interface AdFrameworkMeta {
   badge: string;
@@ -47,11 +52,20 @@ export class DashboardComponent implements OnDestroy {
   productUrl: string = '';
 
   /**
-   * UI processing and loading states.
+   * Progressive UI processing and loading states.
    */
-  isLoading: boolean = false;
+  isTextLoading: boolean = false;
+  isMediaLoading: boolean = false;
   loadingStep: string = '';
   errorMessage: string | null = null;
+  mediaErrorMessage: string | null = null;
+
+  /**
+   * Combined loading state for button disabling.
+   */
+  get isLoading(): boolean {
+    return this.isTextLoading || this.isMediaLoading;
+  }
 
   /**
    * Timers for progressive step updates.
@@ -146,10 +160,9 @@ export class DashboardComponent implements OnDestroy {
   }
 
   /**
-   * Submits the AliExpress URL to trigger the full 1-Click campaign generation pipeline:
-   * 1. Multi-tier scraping (Axios + Cheerio with Googlebot headers)
-   * 2. Gemini direct-response AI generation
-   * 3. Sharp 1080x1080 resizing & FFmpeg 10s video generation
+   * Submits the AliExpress URL with progressive two-stage loading:
+   * Stage 1: Fast text generation (Scraping + Gemini AI copy & targeting). Rendered immediately!
+   * Stage 2: Asynchronous media generation (Pollinations AI lifestyle images + FFmpeg 10s video).
    */
   onGenerate(): void {
     if (!this.productUrl || !this.productUrl.trim()) {
@@ -166,50 +179,96 @@ export class DashboardComponent implements OnDestroy {
     this.resetCopiedStates();
     this.campaignResult = null;
     this.errorMessage = null;
-    this.isLoading = true;
+    this.mediaErrorMessage = null;
+    this.isTextLoading = true;
+    this.isMediaLoading = false;
     this.loadingStep = 'Connecting to AliExpress & extracting product data...';
 
-    // Progressive step updates to provide transparent feedback during generation
+    // Step updates for Stage 1 text analysis
     this.stepTimers.push(
       setTimeout(() => {
-        if (this.isLoading) this.loadingStep = 'Extracting product specs, pricing, and high-res gallery...';
+        if (this.isTextLoading) this.loadingStep = 'Extracting product specs, pricing, and buyer reviews...';
       }, 2500),
     );
 
     this.stepTimers.push(
       setTimeout(() => {
-        if (this.isLoading) this.loadingStep = 'Prompting Gemini with PAS, AIDA & Story direct-response frameworks...';
+        if (this.isTextLoading) this.loadingStep = 'Prompting Gemini with PAS, AIDA & Story direct-response frameworks...';
       }, 5500),
     );
 
-    this.stepTimers.push(
-      setTimeout(() => {
-        if (this.isLoading) this.loadingStep = 'Sharp 1080x1080 square framing & FFmpeg 10s crossfade video synthesis...';
-      }, 9500),
-    );
-
-    this.campaignService.generateCampaign(this.productUrl).subscribe({
-      next: (response: CampaignResponse) => {
+    // Stage 1: Fast Text Analysis
+    this.campaignService.analyzeText(this.productUrl).subscribe({
+      next: (textResponse: AnalyzeTextResponse) => {
         this.clearTimers();
-        this.campaignResult = response;
-        this.isLoading = false;
+        this.isTextLoading = false;
         this.loadingStep = '';
-        this.cdr.detectChanges();
 
-        const shortTitle = response.product.title
-          ? response.product.title.slice(0, 32)
+        // Immediately populate marketing copy, product specs, and customer reviews!
+        this.campaignResult = {
+          success: true,
+          productId: textResponse.productId,
+          product: textResponse.product,
+          marketing: textResponse.marketing,
+          media: {
+            images: [],
+            videoUrl: '',
+          },
+          timestamp: textResponse.timestamp,
+        };
+
+        const shortTitle = textResponse.product.title
+          ? textResponse.product.title.slice(0, 32)
           : 'Product';
 
         this.Toast.fire({
           icon: 'success',
-          title: `Campaign generated for "${shortTitle}..."`,
+          title: `Copy ready for "${shortTitle}..."! Crafting media...`,
         });
+
+        // Stage 2: Asynchronous AI Lifestyle Media & Video Generation
+        this.isMediaLoading = true;
+        this.cdr.detectChanges();
+
+        this.campaignService
+          .generateMedia({
+            productId: textResponse.productId,
+            title: textResponse.product.title,
+            description: textResponse.product.description,
+            imageUrls: textResponse.product.imageUrls,
+          })
+          .subscribe({
+            next: (mediaResponse: GenerateMediaResponse) => {
+              this.isMediaLoading = false;
+              if (this.campaignResult) {
+                this.campaignResult.media = mediaResponse.media;
+              }
+              this.cdr.detectChanges();
+
+              this.Toast.fire({
+                icon: 'success',
+                title: 'AI lifestyle images & promo video generated!',
+              });
+            },
+            error: (mediaErr: Error) => {
+              this.loggerWarn(mediaErr);
+              this.isMediaLoading = false;
+              this.mediaErrorMessage = mediaErr.message || 'Media generation encountered an issue.';
+              this.cdr.detectChanges();
+
+              this.Toast.fire({
+                icon: 'warning',
+                title: 'Media generation delayed or failed.',
+              });
+            },
+          });
       },
       error: (err: Error) => {
         this.clearTimers();
         this.campaignResult = null;
         this.errorMessage = err.message || 'Could not extract product data from this link. Please verify the URL.';
-        this.isLoading = false;
+        this.isTextLoading = false;
+        this.isMediaLoading = false;
         this.loadingStep = '';
         this.cdr.detectChanges();
 
@@ -219,6 +278,10 @@ export class DashboardComponent implements OnDestroy {
         });
       },
     });
+  }
+
+  private loggerWarn(err: any): void {
+    console.warn('[Dashboard] Media generation error:', err);
   }
 
   /**

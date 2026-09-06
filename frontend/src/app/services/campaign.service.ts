@@ -1,7 +1,13 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, catchError, map, throwError } from 'rxjs';
-import { CampaignResponse } from '../models/campaign.model';
+import {
+  CampaignResponse,
+  AnalyzeTextResponse,
+  GenerateMediaResponse,
+  GenerateMediaPayload,
+  MediaAssets,
+} from '../models/campaign.model';
 
 @Injectable({
   providedIn: 'root',
@@ -13,16 +19,43 @@ export class CampaignService {
   readonly baseUrl = 'https://oneclick-z20t.onrender.com';
 
   /**
-   * API endpoint for 1-click campaign generation.
+   * API endpoints.
    */
   readonly apiUrl = `${this.baseUrl}/api/campaign/generate`;
+  readonly analyzeTextUrl = `${this.baseUrl}/api/campaign/analyze-text`;
+  readonly generateMediaUrl = `${this.baseUrl}/api/campaign/generate-media`;
 
   constructor(private readonly http: HttpClient) {}
 
   /**
-   * Initiates the 1-Click marketing campaign generation pipeline.
-   * Scrapes product details, triggers Gemini AI marketing generation,
-   * resizes images with Sharp (1080x1080), and stitches a 10s MP4 promo video with FFmpeg.
+   * Step 1: Initiates fast product scraping & Gemini text generation.
+   *
+   * @param url AliExpress product page URL
+   * @returns Observable of AnalyzeTextResponse with product details & marketing copy
+   */
+  analyzeText(url: string): Observable<AnalyzeTextResponse> {
+    return this.http
+      .post<AnalyzeTextResponse>(this.analyzeTextUrl, { url: url.trim() })
+      .pipe(catchError((error: HttpErrorResponse) => this.handleHttpError(error)));
+  }
+
+  /**
+   * Step 2: Generates lifestyle AI images (Pollinations.ai) and compiles 10s promo video.
+   *
+   * @param payload Payload containing productId, title, description, and scraped imageUrls
+   * @returns Observable of GenerateMediaResponse with normalized media URLs
+   */
+  generateMedia(payload: GenerateMediaPayload): Observable<GenerateMediaResponse> {
+    return this.http
+      .post<GenerateMediaResponse>(this.generateMediaUrl, payload)
+      .pipe(
+        map((response: GenerateMediaResponse) => this.normalizeGenerateMediaResponse(response)),
+        catchError((error: HttpErrorResponse) => this.handleHttpError(error)),
+      );
+  }
+
+  /**
+   * Initiates the unified 1-Click marketing campaign generation pipeline (backwards compatible).
    *
    * @param url AliExpress product page URL
    * @returns Observable containing the complete campaign assets with normalized static URLs
@@ -32,48 +65,67 @@ export class CampaignService {
       .post<CampaignResponse>(this.apiUrl, { url: url.trim() })
       .pipe(
         map((response: CampaignResponse) => this.normalizeMediaUrls(response)),
-        catchError((error: HttpErrorResponse) => {
-          let errorMessage = 'An unexpected error occurred while generating the campaign.';
-          if (error.error && error.error.message) {
-            errorMessage = Array.isArray(error.error.message)
-              ? error.error.message.join(', ')
-              : error.error.message;
-          } else if (typeof error.error === 'string' && error.error.trim().length > 0) {
-            errorMessage = error.error;
-          } else if (error.status === 400 || error.status === 422) {
-            errorMessage = 'Could not extract product data from this link. Please verify the URL.';
-          } else if (error.status === 0) {
-            errorMessage =
-              `Cannot connect to backend service at ${this.baseUrl}. Please verify the Render service is running or check your network connection.`;
-          } else if (error.statusText) {
-            errorMessage = `Backend error (${error.status}): ${error.statusText}`;
-          }
-          return throwError(() => new Error(errorMessage));
-        }),
+        catchError((error: HttpErrorResponse) => this.handleHttpError(error)),
       );
   }
 
   /**
-   * Ensures that static asset URLs (images/video) prepend the Render backend base URL
-   * if they are returned as relative paths, or replace obsolete localhost references.
-   *
-   * @param response Raw CampaignResponse from the backend
-   * @returns CampaignResponse with normalized media URLs
+   * Centralized HTTP error handler with user-friendly error formatting.
+   */
+  private handleHttpError(error: HttpErrorResponse): Observable<never> {
+    let errorMessage = 'An unexpected error occurred while processing the request.';
+    if (error.error && error.error.message) {
+      errorMessage = Array.isArray(error.error.message)
+        ? error.error.message.join(', ')
+        : error.error.message;
+    } else if (typeof error.error === 'string' && error.error.trim().length > 0) {
+      errorMessage = error.error;
+    } else if (error.status === 400 || error.status === 422) {
+      errorMessage = 'Could not extract product data from this link. Please verify the URL.';
+    } else if (error.status === 0) {
+      errorMessage =
+        `Cannot connect to backend service at ${this.baseUrl}. Please verify the Render service is running or check your network connection.`;
+    } else if (error.statusText) {
+      errorMessage = `Backend error (${error.status}): ${error.statusText}`;
+    }
+    return throwError(() => new Error(errorMessage));
+  }
+
+  /**
+   * Normalizes media URLs for CampaignResponse.
    */
   private normalizeMediaUrls(response: CampaignResponse): CampaignResponse {
-    if (!response || !response.media) {
-      return response;
+    if (response?.media) {
+      response.media = this.normalizeMediaAssets(response.media);
     }
-
-    if (Array.isArray(response.media.images)) {
-      response.media.images = response.media.images.map((img) => this.resolveAssetUrl(img));
-    }
-
-    if (response.media.videoUrl) {
-      response.media.videoUrl = this.resolveAssetUrl(response.media.videoUrl);
-    }
-
     return response;
+  }
+
+  /**
+   * Normalizes media URLs for GenerateMediaResponse.
+   */
+  private normalizeGenerateMediaResponse(response: GenerateMediaResponse): GenerateMediaResponse {
+    if (response?.media) {
+      response.media = this.normalizeMediaAssets(response.media);
+    }
+    return response;
+  }
+
+  /**
+   * Normalizes the MediaAssets object.
+   */
+  private normalizeMediaAssets(media: MediaAssets): MediaAssets {
+    if (!media) return media;
+
+    if (Array.isArray(media.images)) {
+      media.images = media.images.map((img) => this.resolveAssetUrl(img));
+    }
+
+    if (media.videoUrl) {
+      media.videoUrl = this.resolveAssetUrl(media.videoUrl);
+    }
+
+    return media;
   }
 
   /**

@@ -31,6 +31,32 @@ export interface MediaAssets {
   localVideoPath?: string;
 }
 
+export interface AnalyzeTextResponse {
+  success: boolean;
+  productId: string;
+  product: ScrapedProduct;
+  marketing: MarketingData;
+  productData?: ScrapedProduct;
+  aiTextContext?: MarketingData;
+  timestamp: string;
+  message?: string;
+}
+
+export interface GenerateMediaResponse {
+  success: boolean;
+  productId?: string;
+  media: MediaAssets;
+  timestamp?: string;
+  message?: string;
+}
+
+export interface GenerateMediaPayload {
+  productId: string;
+  title: string;
+  description?: string;
+  imageUrls?: string[];
+}
+
 export interface CampaignResponse {
   success: boolean;
   productId: string;
