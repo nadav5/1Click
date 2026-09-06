@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import axios from 'axios';
 import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
@@ -37,10 +37,19 @@ export class MediaProcessingService {
   }
 
   /**
-   * Generates lifestyle product images using Pollinations AI (or falls back to scraped images),
+   * Helper sleep function to pause execution for rate-limiting and retries.
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Generates lifestyle product images using Pollinations AI sequentially with rate limiting,
    * resizes them with Sharp to 1080x1080, and stitches them into a 10-second promotional slideshow video.
    *
-   * @param imageUrls List of scraped image URLs (used as fallback)
+   * If AI image generation fails after retries, throws an HttpException so the process halts.
+   *
+   * @param imageUrls List of scraped image URLs (retained in method signature)
    * @param productId Unique identifier for product
    * @param title Product title for contextual AI prompts
    * @param description Product description for contextual AI prompts
@@ -60,8 +69,6 @@ export class MediaProcessingService {
       fs.mkdirSync(tempBaseDir, { recursive: true });
     }
 
-    const selectedScrapedUrls = this.prepareImageUrlList(imageUrls);
-
     // Build 4 distinct lifestyle commercial photography prompts
     const cleanTitle = (title || 'trending modern product')
       .replace(/[^\w\s-]/g, ' ')
@@ -76,56 +83,27 @@ export class MediaProcessingService {
       `Minimalist studio advertisement for ${cleanTitle}, clean neutral background, perfect studio illumination, premium sleek product presentation, 8k`,
     ];
 
-    // Download or generate images concurrently
-    const imageTasks = prompts.map(async (prompt, i) => {
+    const localImagePaths: string[] = [];
+    const publicImageUrls: string[] = [];
+
+    // Process Pollinations AI images sequentially with a for...of loop and 2.5s delay between requests
+    let i = 0;
+    for (const prompt of prompts) {
+      if (i > 0) {
+        this.logger.log(`Waiting 2500ms before requesting next Pollinations AI image to respect rate limits...`);
+        await this.sleep(2500);
+      }
+
       const filename = `image_${i}.jpg`;
       const outputPath = path.join(tempBaseDir, filename);
 
-      let success = false;
+      // Fetch with retry logic; halts and throws HttpException if it permanently fails
+      await this.fetchPollinationsImageWithRetry(prompt, outputPath, i);
 
-      // 1. Try Pollinations AI free image generation
-      try {
-        this.logger.log(`[Media AI #${i + 1}/4] Generating lifestyle image via Pollinations AI...`);
-        await this.fetchPollinationsImage(prompt, outputPath);
-        success = true;
-        this.logger.log(`[Media AI #${i + 1}/4] Successfully generated lifestyle image.`);
-      } catch (pollErr: any) {
-        this.logger.warn(
-          `Pollinations AI failed for image #${i + 1} (${pollErr.message}). Falling back to scraped product image.`,
-        );
-      }
-
-      // 2. Fallback to scraped product images
-      if (!success) {
-        const fallbackUrl = selectedScrapedUrls[i];
-        if (fallbackUrl) {
-          try {
-            await this.downloadAndResizeImage(fallbackUrl, outputPath, i);
-            success = true;
-            this.logger.log(`[Media Fallback #${i + 1}/4] Successfully downloaded scraped image.`);
-          } catch (scrapeErr: any) {
-            this.logger.warn(
-              `Scraped image #${i + 1} download failed (${scrapeErr.message}). Falling back to gradient card.`,
-            );
-          }
-        }
-      }
-
-      // 3. Fallback to gradient placeholder card
-      if (!success) {
-        await this.generatePlaceholderImage(outputPath, i + 1);
-      }
-
-      return {
-        outputPath,
-        publicUrl: `${this.baseUrl}/temp/products/${productId}/${filename}`,
-      };
-    });
-
-    const generatedResults = await Promise.all(imageTasks);
-
-    const localImagePaths: string[] = generatedResults.map((r) => r.outputPath);
-    const publicImageUrls: string[] = generatedResults.map((r) => r.publicUrl);
+      localImagePaths.push(outputPath);
+      publicImageUrls.push(`${this.baseUrl}/temp/products/${productId}/${filename}`);
+      i++;
+    }
 
     // Generate 10-second slideshow video with crossfade transitions
     const videoFilename = 'promo_video.mp4';
@@ -147,6 +125,63 @@ export class MediaProcessingService {
       localImagePaths,
       localVideoPath,
     };
+  }
+
+  /**
+   * Fetches a photorealistic AI lifestyle image from Pollinations.ai with retry logic.
+   * If a 429 (Too Many Requests) or 500 error is caught, logs a warning, waits 4000ms,
+   * and retries fetching that specific image ONE more time.
+   *
+   * If it permanently fails after retries, logs the exact error response code and data,
+   * then throws an HttpException(500).
+   */
+  private async fetchPollinationsImageWithRetry(
+    prompt: string,
+    outputPath: string,
+    imageIndex: number,
+  ): Promise<void> {
+    const maxAttempts = 2;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        this.logger.log(
+          `[Media AI #${imageIndex + 1}/4] (Attempt ${attempt}/${maxAttempts}) Requesting image from Pollinations AI...`,
+        );
+        await this.fetchPollinationsImage(prompt, outputPath);
+        this.logger.log(
+          `[Media AI #${imageIndex + 1}/4] Successfully generated and processed lifestyle image.`,
+        );
+        return;
+      } catch (err: any) {
+        const statusCode = err.response?.status;
+        let responseData = 'No response data';
+        if (err.response?.data) {
+          responseData = Buffer.isBuffer(err.response.data)
+            ? err.response.data.toString('utf-8').slice(0, 1000)
+            : typeof err.response.data === 'object'
+              ? JSON.stringify(err.response.data).slice(0, 1000)
+              : String(err.response.data).slice(0, 1000);
+        }
+
+        const isRateLimitOrServerError = statusCode === 429 || statusCode === 500;
+
+        if (attempt < maxAttempts && isRateLimitOrServerError) {
+          this.logger.warn(
+            `Pollinations AI image #${imageIndex + 1} attempt ${attempt} failed with HTTP ${statusCode}: ${err.message}. Waiting 4000ms before retry. Response data: ${responseData}`,
+          );
+          await this.sleep(4000);
+        } else {
+          this.logger.error(
+            `Pollinations AI image generation permanently failed for image #${imageIndex + 1}. HTTP Status Code: ${statusCode || 'N/A'}. Error Data: ${responseData}`,
+            err.stack,
+          );
+          throw new HttpException(
+            `AI image generation failed on image #${imageIndex + 1} (HTTP ${statusCode || 500}): ${responseData || err.message}`,
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          );
+        }
+      }
+    }
   }
 
   /**
