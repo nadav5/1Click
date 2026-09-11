@@ -182,22 +182,19 @@ export class MediaProcessingService {
     let publicVideoUrl = `${this.baseUrl}/temp/products/${productId}/${videoFilename}`;
 
     try {
-      this.logger.log(`Rendering 10s MP4 promo video for product ${productId}...`);
-      await this.generateSlideshowVideo(localImagePaths, localVideoPath);
+      this.logger.log(`Rendering promo video for product ${productId}...`);
+      await Promise.race([
+        this.generateSlideshowVideo(localImagePaths, localVideoPath),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Video generation exceeded 12s limit on shared CPU')), 12000),
+        ),
+      ]);
       this.logger.log(`Promotional video successfully generated at: ${localVideoPath}`);
     } catch (videoError: any) {
       this.logger.warn(
-        `FFmpeg video generation encountered an error: ${videoError.message}. Attempting simple slideshow fallback...`,
+        `Video generation skipped or timed out: ${videoError.message}. Proceeding with 4x 1080x1080 ad creatives without delay.`,
       );
-      try {
-        await this.generateSimpleSlideshow(localImagePaths, localVideoPath);
-        this.logger.log(`Simple slideshow fallback video generated successfully.`);
-      } catch (fallbackError: any) {
-        this.logger.warn(
-          `Video generation unavailable in current environment: ${fallbackError.message}. Proceeding with 4x 1080x1080 ad creatives.`,
-        );
-        publicVideoUrl = '';
-      }
+      publicVideoUrl = '';
     }
 
     return {
@@ -383,21 +380,25 @@ export class MediaProcessingService {
       const command = ffmpeg();
 
       imagePaths.forEach((imgPath) => {
-        command.input(imgPath).loop(3.2).fps(25);
+        command.input(imgPath).loop(2.8).fps(20);
       });
 
       command
         .complexFilter(
           [
-            '[0:v][1:v]xfade=transition=fade:duration=0.7:offset=2.5[v01]',
-            '[v01][2:v]xfade=transition=fade:duration=0.7:offset=5.0[v02]',
-            '[v02][3:v]xfade=transition=fade:duration=0.7:offset=7.5[v03]',
+            '[0:v]scale=720:720[v0]',
+            '[1:v]scale=720:720[v1]',
+            '[2:v]scale=720:720[v2]',
+            '[3:v]scale=720:720[v3]',
+            '[v0][v1]xfade=transition=fade:duration=0.5:offset=2.3[v01]',
+            '[v01][v2]xfade=transition=fade:duration=0.5:offset=4.6[v02]',
+            '[v02][v3]xfade=transition=fade:duration=0.5:offset=6.9[v03]',
             '[v03]format=yuv420p[outv]',
           ],
           ['outv'],
         )
         .outputOptions([
-          '-t 10',
+          '-t 8',
           '-c:v libx264',
           '-preset ultrafast',
           '-pix_fmt yuv420p',
