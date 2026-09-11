@@ -133,151 +133,137 @@ export class MediaProcessingService {
   ): Promise<MediaAssets> {
     this.logger.log(`Processing AI media assets for product ${productId}...`);
 
-    // Storage directory: temp/products/{productId}
-    const tempBaseDir = path.join(process.cwd(), 'temp', 'products', productId);
-    if (!fs.existsSync(tempBaseDir)) {
-      fs.mkdirSync(tempBaseDir, { recursive: true });
-    }
+    try {
+      // Storage directory: temp/products/{productId}
+      const tempBaseDir = path.join(process.cwd(), 'temp', 'products', productId);
+      if (!fs.existsSync(tempBaseDir)) {
+        fs.mkdirSync(tempBaseDir, { recursive: true });
+      }
 
-    const selectedUrls = this.prepareImageUrlList(imageUrls);
-    const localImagePaths: string[] = [];
-    const publicImageUrls: string[] = [];
+      const selectedUrls = this.prepareImageUrlList(imageUrls);
+      const localImagePaths: string[] = [];
+      const publicImageUrls: string[] = [];
 
-    // Download primary scraped product image as rock-solid fallback & studio asset
-    let primaryScrapedBuffer: Buffer | null = null;
-    for (const url of selectedUrls) {
-      try {
+      // Download primary scraped product image as rock-solid fallback & studio asset
+      let primaryScrapedBuffer: Buffer | null = null;
+      for (const url of selectedUrls) {
         primaryScrapedBuffer = await this.downloadImageBuffer(url);
         if (primaryScrapedBuffer) {
-          this.logger.log(`Downloaded primary product image for studio showcase (${primaryScrapedBuffer.length} bytes).`);
+          this.logger.log(`Downloaded valid primary product image for studio showcase (${primaryScrapedBuffer.length} bytes).`);
           break;
         }
-      } catch (dlErr: any) {
-        this.logger.warn(`Could not download image candidate ${url}: ${dlErr.message}`);
-      }
-    }
-
-    const cleanTitle = (title || 'trending product')
-      .replace(/[^a-zA-Z0-9\s]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .slice(0, 50)
-      .trim();
-
-    const prompts =
-      imagePrompts && imagePrompts.length >= 4
-        ? imagePrompts
-        : [
-            `A photorealistic commercial lifestyle photo of a person actively using ${cleanTitle} in a modern stylish setting, authentic natural lighting, 8k resolution`,
-            `A clean minimalist aesthetic desk and room setup beautifully featuring ${cleanTitle}, warm ambient lighting, cinematic photography, 8k`,
-            `A crisp commercial studio product shot of ${cleanTitle}, dramatic spotlight, dark elegant background, 8k resolution`,
-            `A dynamic close-up candid lifestyle photo of hands interacting with ${cleanTitle}, showcasing high build quality and convenience`,
-          ];
-
-    // Concurrently generate Asset 0 (Pollinations Flux) and Asset 1 (AI Horde)
-    this.logger.log('[Media Studio] Launching concurrent AI image generation...');
-    const [gen0Result, gen1Result] = await Promise.allSettled([
-      this.generatePollinationsImage(prompts[0], 10000),
-      this.generateHordeImage(prompts[1], 22000),
-    ]);
-
-    let buf0 = gen0Result.status === 'fulfilled' ? gen0Result.value : null;
-    let buf1 = gen1Result.status === 'fulfilled' ? gen1Result.value : null;
-
-    // Resilient cross-fallback
-    if (!buf0) {
-      this.logger.log('[Media Studio] Asset #0 Pollinations timed out or failed. Falling back to AI Horde...');
-      buf0 = await this.generateHordeImage(prompts[0], 18000);
-    }
-    if (!buf1) {
-      this.logger.log('[Media Studio] Asset #1 AI Horde timed out or failed. Falling back to Pollinations...');
-      buf1 = await this.generatePollinationsImage(prompts[1], 10000);
-    }
-
-    // Asset 2: Dynamic lifestyle / studio shot
-    let buf2: Buffer | null = await this.generatePollinationsImage(prompts[2], 10000);
-    if (!buf2 && buf0) {
-      buf2 = buf0;
-    }
-
-    // Asset 3: High-converting studio showcase of the actual scraped product
-    let buf3: Buffer | null = null;
-    if (primaryScrapedBuffer) {
-      buf3 = await this.renderStudioBuffer(primaryScrapedBuffer, this.themes[3]);
-      this.logger.log('[Media Studio] Generated studio showcase of actual scraped product for Asset #4.');
-    } else {
-      buf3 = await this.generatePollinationsImage(prompts[3], 10000);
-    }
-
-    // Assemble final 4 buffers with absolute fallback guarantee
-    const assetBuffers: (Buffer | null)[] = [buf0, buf1, buf2, buf3];
-
-    for (let i = 0; i < 4; i++) {
-      const filename = `image_${i}.jpg`;
-      const outputPath = path.join(tempBaseDir, filename);
-      let finalBuffer = assetBuffers[i];
-
-      // If buffer is still null, generate studio buffer from primary image or default
-      if (!finalBuffer && primaryScrapedBuffer) {
-        finalBuffer = await this.renderStudioBuffer(primaryScrapedBuffer, this.themes[i]);
       }
 
-      if (!finalBuffer) {
-        // Ultimate fallback: high-contrast minimal placeholder with theme colors
-        finalBuffer = await sharp({
-          create: {
-            width: 1080,
-            height: 1080,
-            channels: 3,
-            background: { r: 24, g: 24, b: 32 },
-          },
-        })
-          .jpeg({ quality: 90 })
-          .toBuffer();
+      const cleanTitle = (title || 'trending product')
+        .replace(/[^a-zA-Z0-9\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .slice(0, 50)
+        .trim();
+
+      const prompts =
+        imagePrompts && imagePrompts.length >= 4
+          ? imagePrompts
+          : [
+              `A photorealistic commercial lifestyle photo of a person actively using ${cleanTitle} in a modern stylish setting, authentic natural lighting, 8k resolution`,
+              `A clean minimalist aesthetic desk and room setup beautifully featuring ${cleanTitle}, warm ambient lighting, cinematic photography, 8k`,
+              `A crisp commercial studio product shot of ${cleanTitle}, dramatic spotlight, dark elegant background, 8k resolution`,
+              `A dynamic close-up candid lifestyle photo of hands interacting with ${cleanTitle}, showcasing high build quality and convenience`,
+            ];
+
+      // Generate Asset 0: Primary AI Lifestyle image of person using product
+      this.logger.log('[Media Studio] Generating Asset #0 (Lifestyle In-Use)...');
+      let buf0: Buffer | null = await this.generatePollinationsImage(prompts[0], 6500);
+      if (!buf0) {
+        this.logger.log('[Media Studio] Trying AI Horde for Asset #0...');
+        buf0 = await this.generateHordeImage(prompts[0], 8000);
       }
 
-      fs.writeFileSync(outputPath, finalBuffer);
-      localImagePaths.push(outputPath);
-      publicImageUrls.push(`${this.baseUrl}/temp/products/${productId}/${filename}`);
-      this.logger.log(`[Media Studio #${i + 1}/4] Saved ad creative to ${outputPath}`);
-    }
+      // Generate Asset 1: Aesthetic Environment / Setup
+      this.logger.log('[Media Studio] Generating Asset #1 (Aesthetic Environment)...');
+      let buf1: Buffer | null = await this.generatePollinationsImage(prompts[1], 5500);
 
-    // Step 2: Generate 10s slideshow promo video with FFmpeg
-    const videoFilename = 'promo_video.mp4';
-    const localVideoPath = path.join(tempBaseDir, videoFilename);
-    let publicVideoUrl = '';
-
-    if (this.isFfmpegAvailable()) {
-      try {
-        this.logger.log(`FFmpeg binary detected. Rendering promo video for product ${productId}...`);
-        await Promise.race([
-          this.generateSlideshowVideo(localImagePaths, localVideoPath),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Video generation exceeded 20s limit')), 20000),
-          ),
-        ]);
-        publicVideoUrl = `${this.baseUrl}/temp/products/${productId}/${videoFilename}`;
-        this.logger.log(`Promotional video successfully generated at: ${localVideoPath}`);
-      } catch (videoError: any) {
-        this.logger.warn(`Video generation skipped: ${videoError.message}. Returning images.`);
-        publicVideoUrl = '';
+      // Generate Asset 2: Dynamic Lifestyle / Action Shot
+      this.logger.log('[Media Studio] Generating Asset #2 (Dynamic Action)...');
+      let buf2: Buffer | null = null;
+      if (buf0 && !buf1) {
+        buf2 = buf0;
+      } else {
+        buf2 = await this.generatePollinationsImage(prompts[2], 5500);
       }
-    } else {
-      this.logger.log('FFmpeg binary not detected in hosting environment.');
-    }
 
-    return {
-      images: publicImageUrls,
-      videoUrl: publicVideoUrl,
-      localImagePaths,
-      localVideoPath: publicVideoUrl ? localVideoPath : '',
-    };
+      // Generate Asset 3: Studio showcase of actual scraped product
+      this.logger.log('[Media Studio] Generating Asset #3 (Studio Showcase of Scraped Product)...');
+      let buf3: Buffer | null = null;
+      if (primaryScrapedBuffer) {
+        buf3 = await this.renderStudioBuffer(primaryScrapedBuffer, this.themes[3]);
+      } else {
+        buf3 = await this.generatePollinationsImage(prompts[3], 5500);
+      }
+
+      // Assemble final 4 buffers with absolute fallback guarantee
+      const assetBuffers: (Buffer | null)[] = [buf0, buf1, buf2, buf3];
+
+      for (let i = 0; i < 4; i++) {
+        const filename = `image_${i}.jpg`;
+        const outputPath = path.join(tempBaseDir, filename);
+        let finalBuffer = assetBuffers[i];
+
+        // If buffer is still null, generate studio buffer from primary image or theme placeholder
+        if (!finalBuffer && primaryScrapedBuffer) {
+          finalBuffer = await this.renderStudioBuffer(primaryScrapedBuffer, this.themes[i]);
+        }
+
+        if (!finalBuffer) {
+          finalBuffer = await this.createPlaceholderBuffer(this.themes[i]);
+        }
+
+        fs.writeFileSync(outputPath, finalBuffer);
+        localImagePaths.push(outputPath);
+        publicImageUrls.push(`${this.baseUrl}/temp/products/${productId}/${filename}`);
+        this.logger.log(`[Media Studio #${i + 1}/4] Saved ad creative to ${outputPath}`);
+      }
+
+      // Step 2: Generate 10s slideshow promo video with FFmpeg (strict 8s timeout)
+      const videoFilename = 'promo_video.mp4';
+      const localVideoPath = path.join(tempBaseDir, videoFilename);
+      let publicVideoUrl = '';
+
+      if (this.isFfmpegAvailable()) {
+        try {
+          this.logger.log(`FFmpeg binary detected. Rendering promo video for product ${productId}...`);
+          await Promise.race([
+            this.generateSlideshowVideo(localImagePaths, localVideoPath),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Video generation exceeded 8s limit')), 8000),
+            ),
+          ]);
+          publicVideoUrl = `${this.baseUrl}/temp/products/${productId}/${videoFilename}`;
+          this.logger.log(`Promotional video successfully generated at: ${localVideoPath}`);
+        } catch (videoError: any) {
+          this.logger.warn(`Video generation skipped: ${videoError.message}. Returning images.`);
+          publicVideoUrl = '';
+        }
+      } else {
+        this.logger.log('FFmpeg binary not detected in hosting environment.');
+      }
+
+      return {
+        images: publicImageUrls,
+        videoUrl: publicVideoUrl,
+        localImagePaths,
+        localVideoPath: publicVideoUrl ? localVideoPath : '',
+      };
+    } catch (criticalErr: any) {
+      this.logger.error(`Critical error caught in processMedia: ${criticalErr.message}`, criticalErr.stack);
+      return await this.generateSafeEmergencyAssets(productId);
+    }
   }
 
   /**
    * Generates a photorealistic AI lifestyle image using Pollinations (Flux model)
    * with automatic watermark cropping via Sharp.
    */
-  async generatePollinationsImage(prompt: string, timeoutMs: number = 10000): Promise<Buffer | null> {
+  async generatePollinationsImage(prompt: string, timeoutMs: number = 6000): Promise<Buffer | null> {
     const seed = Math.floor(Math.random() * 1000000);
     const cleanPrompt = encodeURIComponent(prompt.trim());
     const url = `https://image.pollinations.ai/prompt/${cleanPrompt}?model=flux&width=1024&height=1024&nologo=true&seed=${seed}`;
@@ -323,7 +309,7 @@ export class MediaProcessingService {
   /**
    * Generates a community AI lifestyle image using AI Horde (Stable Diffusion cluster).
    */
-  async generateHordeImage(prompt: string, timeoutMs: number = 22000): Promise<Buffer | null> {
+  async generateHordeImage(prompt: string, timeoutMs: number = 8000): Promise<Buffer | null> {
     this.logger.log(`[AI Horde] Submitting generation job: "${prompt.slice(0, 60)}..."`);
     try {
       const postRes = await axios.post(
@@ -340,7 +326,7 @@ export class MediaProcessingService {
             apikey: '0000000000',
             'Client-Agent': '1ClickApp:1.0:production',
           },
-          timeout: 8000,
+          timeout: 4000,
         },
       );
 
@@ -349,13 +335,13 @@ export class MediaProcessingService {
 
       const startTime = Date.now();
       while (Date.now() - startTime < timeoutMs) {
-        await new Promise((r) => setTimeout(r, 2000));
-        const checkRes = await axios.get(`https://aihorde.net/api/v2/generate/check/${id}`, { timeout: 6000 });
+        await new Promise((r) => setTimeout(r, 1500));
+        const checkRes = await axios.get(`https://aihorde.net/api/v2/generate/check/${id}`, { timeout: 3000 });
         if (checkRes.data?.done) {
-          const statusRes = await axios.get(`https://aihorde.net/api/v2/generate/status/${id}`, { timeout: 6000 });
+          const statusRes = await axios.get(`https://aihorde.net/api/v2/generate/status/${id}`, { timeout: 3000 });
           const imgUrl = statusRes.data?.generations?.[0]?.img;
           if (imgUrl) {
-            const dlRes = await axios.get(imgUrl, { responseType: 'arraybuffer', timeout: 8000 });
+            const dlRes = await axios.get(imgUrl, { responseType: 'arraybuffer', timeout: 4000 });
             const cleanBuffer = await sharp(dlRes.data)
               .resize(1080, 1080, { fit: 'cover' })
               .jpeg({ quality: 92 })
@@ -378,38 +364,99 @@ export class MediaProcessingService {
    * Ambient Gaussian bokeh background + studio contrast/sharpness boost on centered product.
    */
   private async renderStudioBuffer(productBuffer: Buffer, theme: AdCreativeTheme): Promise<Buffer> {
-    const ambientBg = await sharp(productBuffer)
-      .resize(1080, 1080, { fit: 'cover', position: 'center' })
-      .blur(theme.ambientBlur || 30)
-      .modulate({ brightness: theme.ambientBrightness || 0.55, saturation: 1.25 })
-      .toBuffer();
+    try {
+      const ambientBg = await sharp(productBuffer)
+        .resize(1080, 1080, { fit: 'cover', position: 'center' })
+        .blur(theme.ambientBlur || 30)
+        .modulate({ brightness: theme.ambientBrightness || 0.55, saturation: 1.25 })
+        .toBuffer();
 
-    const foreground = await sharp(productBuffer)
-      .resize(920, 920, { fit: 'inside' })
-      .modulate({ brightness: 1.04, saturation: 1.12 })
-      .sharpen({ sigma: 1.2, m1: 1.0, m2: 2.0 })
-      .toBuffer();
+      const foreground = await sharp(productBuffer)
+        .resize(920, 920, { fit: 'inside' })
+        .modulate({ brightness: 1.04, saturation: 1.12 })
+        .sharpen({ sigma: 1.2, m1: 1.0, m2: 2.0 })
+        .toBuffer();
 
-    return await sharp(ambientBg)
-      .composite([{ input: foreground, gravity: 'center' }])
-      .jpeg({ quality: 92 })
+      return await sharp(ambientBg)
+        .composite([{ input: foreground, gravity: 'center' }])
+        .jpeg({ quality: 92 })
+        .toBuffer();
+    } catch (err: any) {
+      this.logger.warn(`Studio buffer rendering fallback: ${err.message}`);
+      return await this.createPlaceholderBuffer(theme);
+    }
+  }
+
+  /**
+   * Generates a safe, professional DTC placeholder buffer in case input image is unparseable.
+   */
+  private async createPlaceholderBuffer(theme?: AdCreativeTheme): Promise<Buffer> {
+    return await sharp({
+      create: {
+        width: 1080,
+        height: 1080,
+        channels: 3,
+        background: { r: 24, g: 26, b: 34 },
+      },
+    })
+      .jpeg({ quality: 90 })
       .toBuffer();
   }
 
   /**
-   * Downloads an image URL as raw Buffer with 12s timeout.
+   * Ultimate safe emergency media assets generator. Guarantees 200 OK under any failure scenario.
    */
-  private async downloadImageBuffer(url: string): Promise<Buffer> {
-    const response = await axios.get(url, {
-      responseType: 'arraybuffer',
-      timeout: 12000,
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-      },
-    });
-    return Buffer.from(response.data);
+  private async generateSafeEmergencyAssets(productId: string): Promise<MediaAssets> {
+    const tempBaseDir = path.join(process.cwd(), 'temp', 'products', productId);
+    if (!fs.existsSync(tempBaseDir)) {
+      fs.mkdirSync(tempBaseDir, { recursive: true });
+    }
+
+    const localImagePaths: string[] = [];
+    const publicImageUrls: string[] = [];
+
+    for (let i = 0; i < 4; i++) {
+      const filename = `image_${i}.jpg`;
+      const outputPath = path.join(tempBaseDir, filename);
+      if (!fs.existsSync(outputPath)) {
+        const buf = await this.createPlaceholderBuffer(this.themes[i]);
+        fs.writeFileSync(outputPath, buf);
+      }
+      localImagePaths.push(outputPath);
+      publicImageUrls.push(`${this.baseUrl}/temp/products/${productId}/${filename}`);
+    }
+
+    return {
+      images: publicImageUrls,
+      videoUrl: '',
+      localImagePaths,
+      localVideoPath: '',
+    };
+  }
+
+  /**
+   * Downloads an image URL as raw Buffer with strict validation that it is an image.
+   */
+  private async downloadImageBuffer(url: string): Promise<Buffer | null> {
+    try {
+      const response = await axios.get(url, {
+        responseType: 'arraybuffer',
+        timeout: 4000,
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          Accept: 'image/jpeg,image/png,image/webp,image/*;q=0.8',
+        },
+      });
+
+      const buf = Buffer.from(response.data);
+      if (buf.length < 500) return null;
+      // Validate that sharp can actually parse it (ensures not HTML/captcha block!)
+      await sharp(buf).metadata();
+      return buf;
+    } catch {
+      return null;
+    }
   }
 
 
