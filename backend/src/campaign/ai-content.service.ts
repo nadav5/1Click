@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import axios from 'axios';
 import { MarketingData, ScrapedProduct } from './campaign.interface.js';
 
 @Injectable()
@@ -58,6 +59,36 @@ export class AiContentService implements OnModuleInit {
       return this.generateFallbackMarketingData(productData);
     }
 
+    // Fetch primary product image for Gemini Vision multimodal inspection
+    let inlineImagePart: { inlineData: { data: string; mimeType: string } } | null = null;
+    if (productData.imageUrls && productData.imageUrls.length > 0) {
+      for (const imgUrl of productData.imageUrls.slice(0, 3)) {
+        try {
+          const imgRes = await axios.get(imgUrl, {
+            responseType: 'arraybuffer',
+            timeout: 3500,
+            headers: {
+              'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            },
+          });
+          if (imgRes.data && imgRes.data.length > 3000) {
+            const base64 = Buffer.from(imgRes.data).toString('base64');
+            inlineImagePart = {
+              inlineData: {
+                data: base64,
+                mimeType: 'image/jpeg',
+              },
+            };
+            this.logger.log(`Attached product image (${imgRes.data.length} bytes) for Gemini Vision multimodal inspection.`);
+            break;
+          }
+        } catch (e: any) {
+          this.logger.warn(`Could not load image for vision inspection: ${e.message}`);
+        }
+      }
+    }
+
     const reviewsSnippet =
       productData.reviews && productData.reviews.length > 0
         ? productData.reviews
@@ -112,11 +143,15 @@ AUDIENCE, KEYWORDS & CUSTOMER REVIEWS:
 - "targetAudience": 3 ultra-targeted demographic & interest segments ready to paste into Meta Ads Manager tailored strictly to "${productData.title}". Include age ranges, specific Facebook interest categories, and buying behaviors.
 - "keywords": 5 high-intent commercial search keywords and niche hashtags directly matching "${productData.title}".
 - "customerReviews": 4 to 6 top analyzed reviews representing the strongest customer proof points. Each review must have "author", "rating" (number, e.g. 5), "text", "date", "country", and a short "highlight" (e.g., "Build Quality", "Time Saver", "Unbeatable Value").
-- "imagePrompts": 4 rich, highly-descriptive commercial photography prompts (around 150-250 characters each) specifically designed for modern diffusion models (like Flux) for "${productData.title}". Include camera settings, realistic lighting, and sharp focus:
-  * Prompt 1 (Customer Lifestyle In-Use): "Commercial lifestyle photography of a happy, attractive person actively using [product] in [natural realistic environment], shot on 35mm lens f/2.8, natural soft daylight, authentic skin texture, crisp sharp focus, photorealistic 8k uhd"
-  * Prompt 2 (Realistic Environment / In-Context): "Aesthetic lifestyle scene featuring [product] in an authentic modern setting, warm daylight, commercial editorial magazine quality, ultra sharp details"
-  * Prompt 3 (Commercial Studio Showcase): "High-end commercial catalog studio photography of [product], dramatic softbox lighting, pristine clean background, crisp textures, 8k resolution"
-  * Prompt 4 (Close-up Macro Utility): "Crisp close-up lifestyle shot of hands demonstrating [product], showing premium materials, ergonomic build, and effortless ease of use"
+
+CRITICAL VISUAL REPLICATION INSTRUCTION FOR "imagePrompts":
+- Look closely at the attached product photo (if provided) and product description.
+- Extract its EXACT physical appearance: its real shape, colors, materials, textures, and distinctive markings (IGNORE any promotional text, price stickers, or Chinese store banners on the supplier image!).
+- Write 4 rich commercial photography prompts (200-280 characters each). Explicitly describe this EXACT physical product so that diffusion models recreate the authentic item faithfully:
+  * Prompt 1 (Customer Lifestyle In-Use): "Commercial lifestyle photography of a smiling, attractive person actively using [describe exact physical product: shape, colors, materials, markings] in [natural realistic environment], shot on 35mm lens f/2.8, natural soft daylight, authentic skin texture, crisp sharp focus, photorealistic 8k uhd"
+  * Prompt 2 (Realistic Environment / In-Context): "Aesthetic lifestyle scene featuring [describe exact physical product] in an authentic modern setting, warm daylight, commercial editorial magazine quality, ultra sharp details"
+  * Prompt 3 (Commercial Studio Showcase): "High-end commercial catalog studio photography of [describe exact physical product], dramatic softbox lighting, pristine clean background, crisp textures, 8k resolution"
+  * Prompt 4 (Close-up Macro Utility): "Crisp close-up lifestyle shot of hands demonstrating [describe exact physical product], showing premium materials, ergonomic build, and effortless ease of use"
 
 OUTPUT FORMAT:
 Return ONLY a valid, raw JSON object (no markdown formatting, no code blocks, no backticks, no preamble) with this exact schema:
@@ -169,7 +204,12 @@ Return ONLY a valid, raw JSON object (no markdown formatting, no code blocks, no
         this.logger.log(`Invoking Gemini API using model: "${currentModel}"...`);
         const model = genAI.getGenerativeModel({ model: currentModel });
 
-        const response = await model.generateContent(prompt);
+        const contentParts: any[] = [prompt];
+        if (inlineImagePart) {
+          contentParts.push(inlineImagePart);
+        }
+
+        const response = await model.generateContent(contentParts);
         const rawText = response.response.text();
 
         // Clean response text to ensure clean JSON parsing
