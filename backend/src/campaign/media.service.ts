@@ -108,19 +108,20 @@ export class MediaProcessingService {
   }
 
   /**
-   * High-Converting DTC Ad Creative Studio:
-   * 1. Prepares 4 high-resolution product images (cycling through distinct scraped angles).
-   * 2. For each asset, applies professional ambient bokeh background + studio contrast enhancement.
-   * 3. Composites dynamic e-commerce vector badges (Flash Sale, 4.9 Star Rating, Dynamic Price Tag, Shop Now CTA).
-   * 4. Stitches the 4 creatives into a 10s MP4 promo video with FFmpeg.
-   * 5. Executes in under 1.5 seconds with <30MB RAM (100% resilient on Render 512MB RAM).
+   * High-Converting DTC Media Studio:
+   * 1. Generates authentic AI lifestyle images of people using the product and aesthetic environments.
+   * 2. Utilizes dual-engine free AI generation: Pollinations (Flux) + AI Horde (Community GPU network).
+   * 3. Automatically removes watermarks via Sharp crop and formats to clean 1080x1080 commercial photos.
+   * 4. Synthesizes a crisp studio showcase of the actual product.
+   * 5. Compiles assets into a 10-second MP4 promo video with smooth transitions using FFmpeg.
    *
    * @param imageUrls List of scraped image URLs
    * @param productId Unique identifier for product
    * @param title Product title for contextual branding
    * @param description Product description
-   * @param price Product price string (e.g. '$1' or '$24.99')
-   * @returns MediaAssets with public URLs and local paths
+   * @param price Product price string
+   * @param imagePrompts Optional AI generation prompts tailored to the product
+   * @returns MediaAssets with browser URLs and local paths
    */
   async processMedia(
     imageUrls: string[],
@@ -128,8 +129,9 @@ export class MediaProcessingService {
     title?: string,
     description?: string,
     price?: string,
+    imagePrompts?: string[],
   ): Promise<MediaAssets> {
-    this.logger.log(`Processing media assets for product ${productId}...`);
+    this.logger.log(`Processing AI media assets for product ${productId}...`);
 
     // Storage directory: temp/products/{productId}
     const tempBaseDir = path.join(process.cwd(), 'temp', 'products', productId);
@@ -141,60 +143,105 @@ export class MediaProcessingService {
     const localImagePaths: string[] = [];
     const publicImageUrls: string[] = [];
 
-    const effectivePrice = price || '$24.99';
+    // Download primary scraped product image as rock-solid fallback & studio asset
+    let primaryScrapedBuffer: Buffer | null = null;
+    for (const url of selectedUrls) {
+      try {
+        primaryScrapedBuffer = await this.downloadImageBuffer(url);
+        if (primaryScrapedBuffer) {
+          this.logger.log(`Downloaded primary product image for studio showcase (${primaryScrapedBuffer.length} bytes).`);
+          break;
+        }
+      } catch (dlErr: any) {
+        this.logger.warn(`Could not download image candidate ${url}: ${dlErr.message}`);
+      }
+    }
 
-    // Generate 4 distinct DTC ad creatives
-    let primaryBuffer: Buffer | null = null;
+    const cleanTitle = (title || 'trending product')
+      .replace(/[^a-zA-Z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .slice(0, 50)
+      .trim();
+
+    const prompts =
+      imagePrompts && imagePrompts.length >= 4
+        ? imagePrompts
+        : [
+            `A photorealistic commercial lifestyle photo of a person actively using ${cleanTitle} in a modern stylish setting, authentic natural lighting, 8k resolution`,
+            `A clean minimalist aesthetic desk and room setup beautifully featuring ${cleanTitle}, warm ambient lighting, cinematic photography, 8k`,
+            `A crisp commercial studio product shot of ${cleanTitle}, dramatic spotlight, dark elegant background, 8k resolution`,
+            `A dynamic close-up candid lifestyle photo of hands interacting with ${cleanTitle}, showcasing high build quality and convenience`,
+          ];
+
+    // Concurrently generate Asset 0 (Pollinations Flux) and Asset 1 (AI Horde)
+    this.logger.log('[Media Studio] Launching concurrent AI image generation...');
+    const [gen0Result, gen1Result] = await Promise.allSettled([
+      this.generatePollinationsImage(prompts[0], 10000),
+      this.generateHordeImage(prompts[1], 22000),
+    ]);
+
+    let buf0 = gen0Result.status === 'fulfilled' ? gen0Result.value : null;
+    let buf1 = gen1Result.status === 'fulfilled' ? gen1Result.value : null;
+
+    // Resilient cross-fallback
+    if (!buf0) {
+      this.logger.log('[Media Studio] Asset #0 Pollinations timed out or failed. Falling back to AI Horde...');
+      buf0 = await this.generateHordeImage(prompts[0], 18000);
+    }
+    if (!buf1) {
+      this.logger.log('[Media Studio] Asset #1 AI Horde timed out or failed. Falling back to Pollinations...');
+      buf1 = await this.generatePollinationsImage(prompts[1], 10000);
+    }
+
+    // Asset 2: Dynamic lifestyle / studio shot
+    let buf2: Buffer | null = await this.generatePollinationsImage(prompts[2], 10000);
+    if (!buf2 && buf0) {
+      buf2 = buf0;
+    }
+
+    // Asset 3: High-converting studio showcase of the actual scraped product
+    let buf3: Buffer | null = null;
+    if (primaryScrapedBuffer) {
+      buf3 = await this.renderStudioBuffer(primaryScrapedBuffer, this.themes[3]);
+      this.logger.log('[Media Studio] Generated studio showcase of actual scraped product for Asset #4.');
+    } else {
+      buf3 = await this.generatePollinationsImage(prompts[3], 10000);
+    }
+
+    // Assemble final 4 buffers with absolute fallback guarantee
+    const assetBuffers: (Buffer | null)[] = [buf0, buf1, buf2, buf3];
 
     for (let i = 0; i < 4; i++) {
       const filename = `image_${i}.jpg`;
       const outputPath = path.join(tempBaseDir, filename);
-      const sourceUrl = selectedUrls[i];
+      let finalBuffer = assetBuffers[i];
 
-      try {
-        this.logger.log(`[Media Studio #${i + 1}/4] Generating creative theme "${this.themes[i].themeName}"...`);
-        let imageBuffer: Buffer | null = null;
-
-        if (sourceUrl) {
-          try {
-            imageBuffer = await this.downloadImageBuffer(sourceUrl);
-            if (!primaryBuffer) {
-              primaryBuffer = imageBuffer;
-            }
-          } catch (downloadErr: any) {
-            this.logger.warn(
-              `[Media Studio #${i + 1}/4] Failed downloading ${sourceUrl}: ${downloadErr.message}. Using primary product image buffer.`,
-            );
-          }
-        }
-
-        // Fallback to primary buffer if specific angle download failed
-        if (!imageBuffer && primaryBuffer) {
-          imageBuffer = primaryBuffer;
-        }
-
-        if (!imageBuffer) {
-          throw new Error(`No image buffer available for asset #${i + 1}`);
-        }
-
-        await this.renderAdCreative(imageBuffer, this.themes[i], outputPath);
-        this.logger.log(`[Media Studio #${i + 1}/4] Successfully created: ${outputPath}`);
-      } catch (err: any) {
-        this.logger.error(`[Media Studio #${i + 1}/4] Processing failed: ${err.message}`);
-        // If imageBuffer was downloaded but renderAdCreative failed, preserve the raw product image
-        if (primaryBuffer) {
-          fs.writeFileSync(outputPath, primaryBuffer);
-          this.logger.log(`[Media Studio #${i + 1}/4] Preserved raw product image at: ${outputPath}`);
-        } else {
-          throw err;
-        }
+      // If buffer is still null, generate studio buffer from primary image or default
+      if (!finalBuffer && primaryScrapedBuffer) {
+        finalBuffer = await this.renderStudioBuffer(primaryScrapedBuffer, this.themes[i]);
       }
 
+      if (!finalBuffer) {
+        // Ultimate fallback: high-contrast minimal placeholder with theme colors
+        finalBuffer = await sharp({
+          create: {
+            width: 1080,
+            height: 1080,
+            channels: 3,
+            background: { r: 24, g: 24, b: 32 },
+          },
+        })
+          .jpeg({ quality: 90 })
+          .toBuffer();
+      }
+
+      fs.writeFileSync(outputPath, finalBuffer);
       localImagePaths.push(outputPath);
       publicImageUrls.push(`${this.baseUrl}/temp/products/${productId}/${filename}`);
+      this.logger.log(`[Media Studio #${i + 1}/4] Saved ad creative to ${outputPath}`);
     }
 
-    // Step 2: Generate slideshow video ONLY if FFmpeg binary is available in hosting environment
+    // Step 2: Generate 10s slideshow promo video with FFmpeg
     const videoFilename = 'promo_video.mp4';
     const localVideoPath = path.join(tempBaseDir, videoFilename);
     let publicVideoUrl = '';
@@ -205,19 +252,17 @@ export class MediaProcessingService {
         await Promise.race([
           this.generateSlideshowVideo(localImagePaths, localVideoPath),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Video generation exceeded 20s limit on shared CPU')), 20000),
+            setTimeout(() => reject(new Error('Video generation exceeded 20s limit')), 20000),
           ),
         ]);
         publicVideoUrl = `${this.baseUrl}/temp/products/${productId}/${videoFilename}`;
         this.logger.log(`Promotional video successfully generated at: ${localVideoPath}`);
       } catch (videoError: any) {
-        this.logger.warn(
-          `Video generation skipped or timed out: ${videoError.message}. Proceeding with 4x 1080x1080 ad creatives without delay.`,
-        );
+        this.logger.warn(`Video generation skipped: ${videoError.message}. Returning images.`);
         publicVideoUrl = '';
       }
     } else {
-      this.logger.log('FFmpeg binary not detected in hosting environment. Proceeding with 4x 1080x1080 DTC ad creatives.');
+      this.logger.log('FFmpeg binary not detected in hosting environment.');
     }
 
     return {
@@ -229,35 +274,126 @@ export class MediaProcessingService {
   }
 
   /**
-   * Renders a high-converting DTC e-commerce ad creative with Sharp using pure raster operations:
-   * 1. Ambient Gaussian bokeh background derived from the product image.
-   * 2. Studio contrast, saturation, and sharpness boost on the centered product.
-   * 3. Pure pixel composite without SVG or ImageMagick delegates (100% resilient on Linux & Windows).
+   * Generates a photorealistic AI lifestyle image using Pollinations (Flux model)
+   * with automatic watermark cropping via Sharp.
    */
-  private async renderAdCreative(
-    productBuffer: Buffer,
-    theme: AdCreativeTheme,
-    outputPath: string,
-  ): Promise<void> {
-    // 1. Create blurred ambient background from product image
+  async generatePollinationsImage(prompt: string, timeoutMs: number = 10000): Promise<Buffer | null> {
+    const seed = Math.floor(Math.random() * 1000000);
+    const cleanPrompt = encodeURIComponent(prompt.trim());
+    const url = `https://image.pollinations.ai/prompt/${cleanPrompt}?model=flux&width=1024&height=1024&nologo=true&seed=${seed}`;
+
+    this.logger.log(`[Pollinations] Requesting AI image: "${prompt.slice(0, 60)}..."`);
+    try {
+      const response = await axios.get(url, {
+        responseType: 'arraybuffer',
+        timeout: timeoutMs,
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        },
+      });
+
+      const rawBuffer = Buffer.from(response.data);
+      if (rawBuffer.length < 5000) {
+        throw new Error('Received truncated image payload');
+      }
+
+      // Crop the bottom 6% to remove any platform watermark and normalize to 1080x1080
+      const img = sharp(rawBuffer);
+      const meta = await img.metadata();
+      const w = meta.width || 1024;
+      const h = meta.height || 1024;
+      const cropH = Math.floor(h * 0.94);
+
+      const cleanBuffer = await img
+        .extract({ top: 0, left: 0, width: w, height: cropH })
+        .resize(1080, 1080, { fit: 'cover' })
+        .jpeg({ quality: 92 })
+        .toBuffer();
+
+      this.logger.log(`[Pollinations] Successfully generated and cropped AI image (${cleanBuffer.length} bytes).`);
+      return cleanBuffer;
+    } catch (err: any) {
+      this.logger.warn(`[Pollinations] Image generation failed: ${err.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Generates a community AI lifestyle image using AI Horde (Stable Diffusion cluster).
+   */
+  async generateHordeImage(prompt: string, timeoutMs: number = 22000): Promise<Buffer | null> {
+    this.logger.log(`[AI Horde] Submitting generation job: "${prompt.slice(0, 60)}..."`);
+    try {
+      const postRes = await axios.post(
+        'https://aihorde.net/api/v2/generate/async',
+        {
+          prompt: prompt.trim(),
+          params: { steps: 20, n: 1, width: 512, height: 512, cfg_scale: 7 },
+          nsfw: false,
+          censor_nsfw: false,
+          models: ['stable_diffusion'],
+        },
+        {
+          headers: {
+            apikey: '0000000000',
+            'Client-Agent': '1ClickApp:1.0:production',
+          },
+          timeout: 8000,
+        },
+      );
+
+      const id = postRes.data?.id;
+      if (!id) return null;
+
+      const startTime = Date.now();
+      while (Date.now() - startTime < timeoutMs) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const checkRes = await axios.get(`https://aihorde.net/api/v2/generate/check/${id}`, { timeout: 6000 });
+        if (checkRes.data?.done) {
+          const statusRes = await axios.get(`https://aihorde.net/api/v2/generate/status/${id}`, { timeout: 6000 });
+          const imgUrl = statusRes.data?.generations?.[0]?.img;
+          if (imgUrl) {
+            const dlRes = await axios.get(imgUrl, { responseType: 'arraybuffer', timeout: 8000 });
+            const cleanBuffer = await sharp(dlRes.data)
+              .resize(1080, 1080, { fit: 'cover' })
+              .jpeg({ quality: 92 })
+              .toBuffer();
+            this.logger.log(`[AI Horde] Successfully retrieved and formatted image (${cleanBuffer.length} bytes).`);
+            return cleanBuffer;
+          }
+          break;
+        }
+      }
+      return null;
+    } catch (err: any) {
+      this.logger.warn(`[AI Horde] Generation failed: ${err.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Renders a high-converting DTC studio showcase with Sharp using pure raster operations:
+   * Ambient Gaussian bokeh background + studio contrast/sharpness boost on centered product.
+   */
+  private async renderStudioBuffer(productBuffer: Buffer, theme: AdCreativeTheme): Promise<Buffer> {
     const ambientBg = await sharp(productBuffer)
       .resize(1080, 1080, { fit: 'cover', position: 'center' })
       .blur(theme.ambientBlur || 30)
       .modulate({ brightness: theme.ambientBrightness || 0.55, saturation: 1.25 })
       .toBuffer();
 
-    // 2. Prepare sharp, enhanced foreground product
     const foreground = await sharp(productBuffer)
       .resize(920, 920, { fit: 'inside' })
       .modulate({ brightness: 1.04, saturation: 1.12 })
       .sharpen({ sigma: 1.2, m1: 1.0, m2: 2.0 })
       .toBuffer();
 
-    // 3. Composite pure raster layers into final 1080x1080 JPEG
-    await sharp(ambientBg)
+    return await sharp(ambientBg)
       .composite([{ input: foreground, gravity: 'center' }])
       .jpeg({ quality: 92 })
-      .toFile(outputPath);
+      .toBuffer();
   }
 
   /**

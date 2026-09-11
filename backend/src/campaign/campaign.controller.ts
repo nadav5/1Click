@@ -109,6 +109,7 @@ export class CampaignController {
         dto.title,
         dto.description,
         dto.price,
+        dto.imagePrompts,
       );
 
       this.logger.log(`Successfully generated media for product: ${dto.productId}`);
@@ -159,6 +160,7 @@ export class CampaignController {
         product.title,
         product.description,
         product.price,
+        marketing.imagePrompts,
       );
 
       this.logger.log(`Successfully generated campaign for: ${product.title}`);

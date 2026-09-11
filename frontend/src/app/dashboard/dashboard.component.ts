@@ -294,6 +294,7 @@ export class DashboardComponent implements OnDestroy {
             description: textResponse.product.description,
             price: textResponse.product.price,
             imageUrls: textResponse.product.imageUrls,
+            imagePrompts: textResponse.marketing?.imagePrompts,
           })
           .subscribe({
             next: (mediaResponse: GenerateMediaResponse) => {

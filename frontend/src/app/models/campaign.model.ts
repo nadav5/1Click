@@ -22,6 +22,7 @@ export interface MarketingData {
   targetAudience: string[];
   keywords: string[];
   customerReviews?: ProductReview[];
+  imagePrompts?: string[];
 }
 
 export interface MediaAssets {
@@ -56,6 +57,7 @@ export interface GenerateMediaPayload {
   description?: string;
   price?: string;
   imageUrls?: string[];
+  imagePrompts?: string[];
 }
 
 export interface CampaignResponse {

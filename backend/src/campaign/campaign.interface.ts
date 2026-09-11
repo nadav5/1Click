@@ -28,6 +28,7 @@ export interface MarketingData {
   targetAudience: string[];
   keywords: string[];
   customerReviews?: ProductReview[];
+  imagePrompts?: string[];
 }
 
 /**

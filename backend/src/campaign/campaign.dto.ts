@@ -12,4 +12,5 @@ export class GenerateMediaDto {
   description?: string;
   price?: string;
   imageUrls?: string[];
+  imagePrompts?: string[];
 }
