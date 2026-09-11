@@ -235,6 +235,7 @@ export class DashboardComponent implements OnDestroy {
             productId: textResponse.productId,
             title: textResponse.product.title,
             description: textResponse.product.description,
+            price: textResponse.product.price,
             imageUrls: textResponse.product.imageUrls,
           })
           .subscribe({

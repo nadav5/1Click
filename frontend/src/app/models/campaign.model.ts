@@ -54,6 +54,7 @@ export interface GenerateMediaPayload {
   productId: string;
   title: string;
   description?: string;
+  price?: string;
   imageUrls?: string[];
 }
 

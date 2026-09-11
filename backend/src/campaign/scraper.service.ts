@@ -132,16 +132,32 @@ export class ScraperService {
         } catch {}
       });
 
-      // Regex scan HTML for AliExpress CDN gallery images (alicdn.com/kf/...)
+      // Regex scan HTML for AliExpress CDN gallery images (alicdn.com & aliexpress-media.com)
       const unescapedHtml = html.replace(/\\\//g, '/');
       const alicdnMatches = unescapedHtml.match(
-        /(?:https?:)?\/\/[a-zA-Z0-9.-]*alicdn\.com\/kf\/[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9]+)?/gi,
+        /(?:https?:)?\/\/[a-zA-Z0-9.-]*(?:alicdn\.com|aliexpress-media\.com)\/kf\/[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9]+)?/gi,
       );
       if (alicdnMatches) {
         for (const m of alicdnMatches) {
           candidateUrls.push(m.startsWith('//') ? `https:${m}` : m);
         }
       }
+
+      // Check for imagePathList in script blocks
+      $('script').each((_, el) => {
+        const text = $(el).html() || '';
+        if (text.includes('imagePathList')) {
+          const listMatch = text.match(/imagePathList\s*:\s*(\[[^\]]+\])/);
+          if (listMatch && listMatch[1]) {
+            try {
+              const paths = JSON.parse(listMatch[1].replace(/'/g, '"'));
+              if (Array.isArray(paths)) {
+                paths.forEach((p) => candidateUrls.push(String(p)));
+              }
+            } catch {}
+          }
+        }
+      });
 
       // Clean title
       title = this.cleanProductTitle(title, slugTitle, productId);
@@ -249,6 +265,11 @@ export class ScraperService {
 
       if (highRes.startsWith('http://')) {
         highRes = highRes.replace('http://', 'https://');
+      }
+
+      // Add .jpg extension if missing from /kf/ CDN image hash
+      if (/\/kf\/[a-zA-Z0-9_-]+$/i.test(highRes)) {
+        highRes = `${highRes}.jpg`;
       }
 
       if (highRes.startsWith('https://')) {

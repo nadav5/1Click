@@ -108,6 +108,7 @@ export class CampaignController {
         dto.productId,
         dto.title,
         dto.description,
+        dto.price,
       );
 
       this.logger.log(`Successfully generated media for product: ${dto.productId}`);
@@ -129,7 +130,7 @@ export class CampaignController {
    * Unified single-call endpoint (backwards compatible):
    * 1. Scrape product data from AliExpress
    * 2. Generate marketing copy with Gemini
-   * 3. Generate lifestyle images (Pollinations AI) & 10s MP4 promo video
+   * 3. Generate lifestyle images (Sharp 1080x1080 DTC Creatives) & 10s MP4 promo video
    */
   @Post('generate')
   @HttpCode(HttpStatus.OK)
@@ -150,13 +151,14 @@ export class CampaignController {
       this.logger.log('[Step 2/3] Generating AI marketing copy with Gemini...');
       const marketing = await this.aiContentService.generateMarketingData(product);
 
-      // Step 3: Process Media (Pollinations AI + Sharp 1080x1080 + FFmpeg 10s video)
+      // Step 3: Process Media (Sharp 1080x1080 DTC Creatives + FFmpeg 10s video)
       this.logger.log('[Step 3/3] Generating lifestyle media and promo video...');
       const media = await this.mediaService.processMedia(
         product.imageUrls,
         product.productId,
         product.title,
         product.description,
+        product.price,
       );
 
       this.logger.log(`Successfully generated campaign for: ${product.title}`);

@@ -526,10 +526,10 @@
                   </div>
                   <div class="space-y-1">
                     <h4 class="text-xs font-bold text-indigo-950">
-                      🎨 AI is crafting your lifestyle images & video... (This takes about 30 seconds)
+                      🎨 Generating 4x 1080x1080 DTC Ad Creatives & Promo Video...
                     </h4>
                     <p class="text-[11px] text-indigo-700 leading-relaxed">
-                      Synthesizing 4 photorealistic in-use scenes with Pollinations AI and assembling your 10s crossfade promo video with FFmpeg.
+                      Rendering studio-grade ad creatives with dynamic marketing badges, price tags, and 10s crossfade promo video.
                     </p>
                   </div>
                 </div>
@@ -558,8 +558,8 @@
                 <!-- 4x Image Assets Skeleton Grid -->
                 <div class="pt-3 border-t border-slate-100">
                   <div class="flex items-center justify-between mb-2.5">
-                    <span class="text-xs font-bold text-slate-700">🎨 Generating 4x Lifestyle Assets</span>
-                    <span class="text-[10px] font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 animate-pulse">Pollinations AI</span>
+                    <span class="text-xs font-bold text-slate-700">🎨 Generating 4x DTC Ad Assets</span>
+                    <span class="text-[10px] font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 animate-pulse">Sharp Studio Engine</span>
                   </div>
                   <div class="grid grid-cols-2 gap-2.5">
                     <div *ngFor="let item of [1, 2, 3, 4]" class="aspect-square rounded-lg bg-slate-100 border border-slate-200 animate-pulse flex flex-col items-center justify-center gap-1 p-3 text-center">
@@ -583,10 +583,10 @@
                 <p class="text-amber-800 text-[11px] leading-relaxed">{{ mediaErrorMessage }}</p>
               </div>
 
-              <!-- Media Rendered State (When !isMediaLoading && campaignResult.media?.videoUrl) -->
-              <div *ngIf="!isMediaLoading && campaignResult.media?.videoUrl" class="animate-fadeIn">
-                <!-- Video Player (Top of Media Card) -->
-                <div class="mt-4">
+              <!-- Media Rendered State (When !isMediaLoading && (images or video exist)) -->
+              <div *ngIf="!isMediaLoading && (campaignResult.media?.videoUrl || (campaignResult.media?.images && campaignResult.media.images.length > 0))" class="animate-fadeIn">
+                <!-- Video Player (Top of Media Card - rendered if videoUrl present) -->
+                <div *ngIf="campaignResult.media.videoUrl" class="mt-4">
                   <div class="relative aspect-square rounded-xl overflow-hidden bg-slate-950 border border-slate-200 shadow-md flex items-center justify-center">
                     <video
                       *ngIf="campaignResult.media.videoUrl"
@@ -625,7 +625,7 @@
                 <div *ngIf="campaignResult.media.images && campaignResult.media.images.length > 0" class="mt-5 pt-4 border-t border-slate-100">
                   <div class="flex items-center justify-between mb-3">
                     <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                      📸 1080x1080 AI Lifestyle Assets (4x)
+                      📸 1080x1080 DTC Ad Creatives (4x)
                     </h4>
                     <span class="text-[10px] text-slate-400 font-mono">Square Cropped</span>
                   </div>

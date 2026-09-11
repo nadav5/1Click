@@ -15,6 +15,10 @@ import { CampaignModule } from './campaign/campaign.module.js';
       serveRoot: '/temp',
       serveStaticOptions: {
         fallthrough: true,
+        setHeaders: (res: any) => {
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        },
       },
     }),
     CampaignModule,

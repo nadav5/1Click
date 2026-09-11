@@ -14,16 +14,21 @@ import {
 })
 export class CampaignService {
   /**
-   * Base URL for the live Render backend service.
+   * Base URL: routes to localhost:3000 during local dev, and Render in production.
    */
-  readonly baseUrl = 'https://oneclick-z20t.onrender.com';
+  get baseUrl(): string {
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+      return 'http://localhost:3000';
+    }
+    return 'https://oneclick-z20t.onrender.com';
+  }
 
   /**
    * API endpoints.
    */
-  readonly apiUrl = `${this.baseUrl}/api/campaign/generate`;
-  readonly analyzeTextUrl = `${this.baseUrl}/api/campaign/analyze-text`;
-  readonly generateMediaUrl = `${this.baseUrl}/api/campaign/generate-media`;
+  get apiUrl(): string { return `${this.baseUrl}/api/campaign/generate`; }
+  get analyzeTextUrl(): string { return `${this.baseUrl}/api/campaign/analyze-text`; }
+  get generateMediaUrl(): string { return `${this.baseUrl}/api/campaign/generate-media`; }
 
   constructor(private readonly http: HttpClient) {}
 

@@ -6,11 +6,19 @@ import { MarketingData, ScrapedProduct } from './campaign.interface.js';
 @Injectable()
 export class AiContentService implements OnModuleInit {
   private readonly logger = new Logger(AiContentService.name);
-  private readonly modelName = 'gemini-1.5-flash';
+  private modelName = 'gemini-3.6-flash';
+  private readonly candidateModels = ['gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
 
   constructor(private readonly configService: ConfigService) {}
 
   onModuleInit(): void {
+    const configuredModel = this.configService.get<string>('GEMINI_MODEL');
+    if (configuredModel && configuredModel.trim().length > 0 && configuredModel !== 'gemini-1.5-flash') {
+      this.modelName = configuredModel.trim();
+    } else {
+      this.modelName = 'gemini-3.6-flash';
+    }
+
     const rawKey = this.configService.get<string>('GEMINI_API_KEY');
     const apiKey = rawKey?.trim().replace(/^["']|["']$/g, '');
     if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY_HERE') {
@@ -133,45 +141,53 @@ Return ONLY a valid, raw JSON object (no markdown formatting, no code blocks, no
 }
 `;
 
-    try {
-      this.logger.log(`Invoking Gemini API using model: "${this.modelName}"...`);
-      const genAI = new GoogleGenerativeAI(apiKey.trim());
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const modelsToTry = [
+      this.modelName,
+      ...this.candidateModels.filter((m) => m !== this.modelName),
+    ];
 
-      const response = await model.generateContent(prompt);
-      const rawText = response.response.text();
+    const genAI = new GoogleGenerativeAI(apiKey.trim());
 
-      // Clean response text to ensure clean JSON parsing
-      const cleanedJson = this.extractJsonString(rawText);
-      const parsed: MarketingData = JSON.parse(cleanedJson);
+    for (const currentModel of modelsToTry) {
+      try {
+        this.logger.log(`Invoking Gemini API using model: "${currentModel}"...`);
+        const model = genAI.getGenerativeModel({ model: currentModel });
 
-      // Validate structure
-      if (
-        Array.isArray(parsed.facebookAdCopies) &&
-        Array.isArray(parsed.targetAudience) &&
-        Array.isArray(parsed.keywords)
-      ) {
-        if (!parsed.customerReviews || parsed.customerReviews.length === 0) {
-          parsed.customerReviews = productData.reviews ? productData.reviews.slice(0, 6) : [];
+        const response = await model.generateContent(prompt);
+        const rawText = response.response.text();
+
+        // Clean response text to ensure clean JSON parsing
+        const cleanedJson = this.extractJsonString(rawText);
+        const parsed: MarketingData = JSON.parse(cleanedJson);
+
+        // Validate structure
+        if (
+          Array.isArray(parsed.facebookAdCopies) &&
+          Array.isArray(parsed.targetAudience) &&
+          Array.isArray(parsed.keywords)
+        ) {
+          if (!parsed.customerReviews || parsed.customerReviews.length === 0) {
+            parsed.customerReviews = productData.reviews ? productData.reviews.slice(0, 6) : [];
+          }
+          this.logger.log(
+            `Successfully generated dynamic marketing copy for "${productData.title}" from Gemini API (${currentModel}).`,
+          );
+          this.modelName = currentModel;
+          return parsed;
         }
-        this.logger.log(
-          `Successfully generated dynamic marketing copy for "${productData.title}" from Gemini API (gemini-1.5-flash).`,
-        );
-        return parsed;
-      }
 
-      throw new Error('Parsed response does not match expected interface');
-    } catch (error: any) {
-      this.logger.error(
-        `[AiContentService] Gemini API generation failed for "${productData.title}". ` +
-          `Model: "gemini-1.5-flash", ` +
-          `Key length: ${apiKey.length}, ` +
-          `Error: ${error?.message || error}. ` +
-          `Stack: ${error?.stack || 'N/A'}. ` +
-          `Falling back to dynamic algorithmic copy generator.`,
-      );
-      return this.generateFallbackMarketingData(productData);
+        throw new Error('Parsed response does not match expected interface');
+      } catch (error: any) {
+        this.logger.warn(
+          `[AiContentService] Model "${currentModel}" failed: ${error?.message || error}. Attempting next model if available...`,
+        );
+      }
     }
+
+    this.logger.error(
+      `[AiContentService] All Gemini models failed for "${productData.title}". Falling back to dynamic algorithmic copy generator.`,
+    );
+    return this.generateFallbackMarketingData(productData);
   }
 
   /**
