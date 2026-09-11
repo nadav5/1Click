@@ -4,6 +4,7 @@ import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync } from 'child_process';
 import { MediaAssets } from './campaign.interface.js';
 
 export interface AdCreativeTheme {
@@ -24,6 +25,7 @@ export interface AdCreativeTheme {
 export class MediaProcessingService {
   private readonly logger = new Logger(MediaProcessingService.name);
   private readonly baseUrl: string;
+  private hasFfmpeg: boolean | null = null;
 
   private readonly themes: AdCreativeTheme[] = [
     {
@@ -176,25 +178,30 @@ export class MediaProcessingService {
       publicImageUrls.push(`${this.baseUrl}/temp/products/${productId}/${filename}`);
     }
 
-    // Step 2: Generate 10-second slideshow video using the final composited images
+    // Step 2: Generate slideshow video ONLY if FFmpeg binary is available in hosting environment
     const videoFilename = 'promo_video.mp4';
     const localVideoPath = path.join(tempBaseDir, videoFilename);
-    let publicVideoUrl = `${this.baseUrl}/temp/products/${productId}/${videoFilename}`;
+    let publicVideoUrl = '';
 
-    try {
-      this.logger.log(`Rendering promo video for product ${productId}...`);
-      await Promise.race([
-        this.generateSlideshowVideo(localImagePaths, localVideoPath),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Video generation exceeded 12s limit on shared CPU')), 12000),
-        ),
-      ]);
-      this.logger.log(`Promotional video successfully generated at: ${localVideoPath}`);
-    } catch (videoError: any) {
-      this.logger.warn(
-        `Video generation skipped or timed out: ${videoError.message}. Proceeding with 4x 1080x1080 ad creatives without delay.`,
-      );
-      publicVideoUrl = '';
+    if (this.isFfmpegAvailable()) {
+      try {
+        this.logger.log(`FFmpeg binary detected. Rendering promo video for product ${productId}...`);
+        await Promise.race([
+          this.generateSlideshowVideo(localImagePaths, localVideoPath),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Video generation exceeded 8s limit on shared CPU')), 8000),
+          ),
+        ]);
+        publicVideoUrl = `${this.baseUrl}/temp/products/${productId}/${videoFilename}`;
+        this.logger.log(`Promotional video successfully generated at: ${localVideoPath}`);
+      } catch (videoError: any) {
+        this.logger.warn(
+          `Video generation skipped or timed out: ${videoError.message}. Proceeding with 4x 1080x1080 ad creatives without delay.`,
+        );
+        publicVideoUrl = '';
+      }
+    } else {
+      this.logger.log('FFmpeg binary not detected in hosting environment. Proceeding with 4x 1080x1080 DTC ad creatives.');
     }
 
     return {
@@ -445,10 +452,25 @@ export class MediaProcessingService {
   }
 
   /**
+   * Safe check if FFmpeg binary exists and runs in the host environment.
+   */
+  private isFfmpegAvailable(): boolean {
+    if (this.hasFfmpeg !== null) return this.hasFfmpeg;
+    try {
+      execSync('ffmpeg -version', { stdio: 'ignore', timeout: 1500 });
+      this.hasFfmpeg = true;
+    } catch {
+      this.hasFfmpeg = false;
+    }
+    return this.hasFfmpeg;
+  }
+
+  /**
    * Diagnostic method reporting memory usage, uptime, and sharp status.
    */
   async testImglyMemory(): Promise<{
     success: boolean;
+    version: string;
     timeTakenMs: number;
     memoryUsedMb: number;
     message: string;
@@ -460,12 +482,14 @@ export class MediaProcessingService {
 
     return {
       success: true,
+      version: 'v2.4-fast-dtc',
       timeTakenMs: 1,
       memoryUsedMb: heapMb,
       message: 'Sharp DTC Creative Studio active. 100% resilient and zero-crash guaranteed.',
       details: {
         rssMb,
         heapUsedMb: heapMb,
+        ffmpegAvailable: this.isFfmpegAvailable(),
         engine: 'Sharp C++ v' + sharp.versions.sharp,
       },
     };
