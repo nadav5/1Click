@@ -83,7 +83,7 @@ export class MediaProcessingService {
   ];
 
   constructor() {
-    this.baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+    this.baseUrl = process.env.RENDER_EXTERNAL_URL || process.env.BASE_URL || 'http://localhost:3000';
     this.configureFfmpeg();
   }
 
