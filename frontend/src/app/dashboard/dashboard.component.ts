@@ -17,6 +17,17 @@ export interface AdFrameworkMeta {
   subtitle: string;
 }
 
+export interface CreativeTheme {
+  themeName: string;
+  badgeText: string;
+  badgeClass: string;
+  pillText: string;
+  pricePrefix: string;
+  subText: string;
+  btnText: string;
+  btnClass: string;
+}
+
 export interface NavItem {
   id: string;
   label: string;
@@ -106,6 +117,52 @@ export class DashboardComponent implements OnDestroy {
       badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
       name: 'Customer Narrative & Trust',
       subtitle: 'Relatable scenario that overcomes buyer skepticism with social proof.',
+    },
+  ];
+
+  /**
+   * Creative themes for the 4 DTC Ad formats.
+   */
+  readonly creativeThemes: CreativeTheme[] = [
+    {
+      themeName: 'flash_deal',
+      badgeText: '🔥 FLASH SALE',
+      badgeClass: 'bg-gradient-to-r from-red-500 to-amber-500 text-white',
+      pillText: '★ 4.9/5 RATED',
+      pricePrefix: 'ONLY',
+      subText: 'FREE WORLDWIDE SHIPPING',
+      btnText: 'SHOP NOW →',
+      btnClass: 'bg-blue-600 hover:bg-blue-500',
+    },
+    {
+      themeName: 'best_seller',
+      badgeText: '🏆 #1 BEST SELLER',
+      badgeClass: 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white',
+      pillText: '✓ VERIFIED CHOICE',
+      pricePrefix: 'TODAY',
+      subText: 'OVER 2,500+ SATISFIED BUYERS',
+      btnText: 'CLAIM OFFER →',
+      btnClass: 'bg-emerald-600 hover:bg-emerald-500',
+    },
+    {
+      themeName: 'feature_focus',
+      badgeText: '⚡ PREMIUM BUILD',
+      badgeClass: 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white',
+      pillText: 'CERTIFIED QUALITY',
+      pricePrefix: 'SPECIAL',
+      subText: 'FACTORY DIRECT · 30-DAY WARRANTY',
+      btnText: 'ORDER TODAY →',
+      btnClass: 'bg-indigo-600 hover:bg-indigo-500',
+    },
+    {
+      themeName: 'guarantee',
+      badgeText: '🛡️ 100% RISK FREE',
+      badgeClass: 'bg-gradient-to-r from-amber-500 to-rose-500 text-white',
+      pillText: '30-DAY GUARANTEE',
+      pricePrefix: 'DEAL',
+      subText: 'RISK-FREE 30-DAY MONEY-BACK',
+      btnText: 'GET DEAL →',
+      btnClass: 'bg-amber-600 hover:bg-amber-500',
     },
   ];
 

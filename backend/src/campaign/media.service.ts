@@ -144,6 +144,8 @@ export class MediaProcessingService {
     const effectivePrice = price || '$24.99';
 
     // Generate 4 distinct DTC ad creatives
+    let primaryBuffer: Buffer | null = null;
+
     for (let i = 0; i < 4; i++) {
       const filename = `image_${i}.jpg`;
       const outputPath = path.join(tempBaseDir, filename);
@@ -156,22 +158,36 @@ export class MediaProcessingService {
         if (sourceUrl) {
           try {
             imageBuffer = await this.downloadImageBuffer(sourceUrl);
+            if (!primaryBuffer) {
+              primaryBuffer = imageBuffer;
+            }
           } catch (downloadErr: any) {
             this.logger.warn(
-              `[Media Studio #${i + 1}/4] Failed downloading ${sourceUrl}: ${downloadErr.message}. Generating synthetic product image.`,
+              `[Media Studio #${i + 1}/4] Failed downloading ${sourceUrl}: ${downloadErr.message}. Using primary product image buffer.`,
             );
           }
         }
 
-        if (!imageBuffer) {
-          imageBuffer = await this.generateSyntheticProductBuffer(i + 1, title);
+        // Fallback to primary buffer if specific angle download failed
+        if (!imageBuffer && primaryBuffer) {
+          imageBuffer = primaryBuffer;
         }
 
-        await this.renderAdCreative(imageBuffer, this.themes[i], effectivePrice, outputPath, i);
+        if (!imageBuffer) {
+          throw new Error(`No image buffer available for asset #${i + 1}`);
+        }
+
+        await this.renderAdCreative(imageBuffer, this.themes[i], outputPath);
         this.logger.log(`[Media Studio #${i + 1}/4] Successfully created: ${outputPath}`);
       } catch (err: any) {
-        this.logger.error(`[Media Studio #${i + 1}/4] Failed: ${err.message}. Creating placeholder.`);
-        await this.generatePlaceholderImage(outputPath, i + 1);
+        this.logger.error(`[Media Studio #${i + 1}/4] Processing failed: ${err.message}`);
+        // If imageBuffer was downloaded but renderAdCreative failed, preserve the raw product image
+        if (primaryBuffer) {
+          fs.writeFileSync(outputPath, primaryBuffer);
+          this.logger.log(`[Media Studio #${i + 1}/4] Preserved raw product image at: ${outputPath}`);
+        } else {
+          throw err;
+        }
       }
 
       localImagePaths.push(outputPath);
@@ -189,7 +205,7 @@ export class MediaProcessingService {
         await Promise.race([
           this.generateSlideshowVideo(localImagePaths, localVideoPath),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Video generation exceeded 8s limit on shared CPU')), 8000),
+            setTimeout(() => reject(new Error('Video generation exceeded 20s limit on shared CPU')), 20000),
           ),
         ]);
         publicVideoUrl = `${this.baseUrl}/temp/products/${productId}/${videoFilename}`;
@@ -213,25 +229,21 @@ export class MediaProcessingService {
   }
 
   /**
-   * Renders a high-converting DTC e-commerce ad creative with Sharp:
-   * - Ambient Gaussian bokeh background derived from the product image
-   * - Studio contrast, saturation, and sharpness boost on the product
-   * - Crisp vector overlays: badges, star ratings, price tags, and Shop Now CTA
+   * Renders a high-converting DTC e-commerce ad creative with Sharp using pure raster operations:
+   * 1. Ambient Gaussian bokeh background derived from the product image.
+   * 2. Studio contrast, saturation, and sharpness boost on the centered product.
+   * 3. Pure pixel composite without SVG or ImageMagick delegates (100% resilient on Linux & Windows).
    */
   private async renderAdCreative(
     productBuffer: Buffer,
     theme: AdCreativeTheme,
-    price: string,
     outputPath: string,
-    themeIndex: number,
   ): Promise<void> {
-    const cleanPrice = (price || '$24.99').toUpperCase().trim();
-
     // 1. Create blurred ambient background from product image
     const ambientBg = await sharp(productBuffer)
       .resize(1080, 1080, { fit: 'cover', position: 'center' })
-      .blur(theme.ambientBlur)
-      .modulate({ brightness: theme.ambientBrightness, saturation: 1.25 })
+      .blur(theme.ambientBlur || 30)
+      .modulate({ brightness: theme.ambientBrightness || 0.55, saturation: 1.25 })
       .toBuffer();
 
     // 2. Prepare sharp, enhanced foreground product
@@ -241,59 +253,10 @@ export class MediaProcessingService {
       .sharpen({ sigma: 1.2, m1: 1.0, m2: 2.0 })
       .toBuffer();
 
-    // 3. Create SVG badge overlays
-    const svgOverlay = Buffer.from(`
-      <svg width="1080" height="1080" viewBox="0 0 1080 1080" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="topGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#050B14" stop-opacity="0.88" />
-            <stop offset="100%" stop-color="#050B14" stop-opacity="0.0" />
-          </linearGradient>
-          <linearGradient id="bottomGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-            <stop offset="0%" stop-color="#050B14" stop-opacity="0.95" />
-            <stop offset="60%" stop-color="#050B14" stop-opacity="0.75" />
-            <stop offset="100%" stop-color="#050B14" stop-opacity="0.0" />
-          </linearGradient>
-          <linearGradient id="badgeGrad_${themeIndex}" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="${theme.badgeGrad[0]}" />
-            <stop offset="100%" stop-color="${theme.badgeGrad[1]}" />
-          </linearGradient>
-        </defs>
-
-        <!-- Top Header Gradient -->
-        <rect x="0" y="0" width="1080" height="220" fill="url(#topGrad)" />
-
-        <!-- Main Badge Pill -->
-        <rect x="60" y="48" width="280" height="54" rx="27" fill="url(#badgeGrad_${themeIndex})" />
-        <text x="200" y="84" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="800" fill="#FFFFFF" text-anchor="middle" letter-spacing="0.5">${theme.badgeText}</text>
-
-        <!-- Rating / Social Proof Pill -->
-        <rect x="360" y="48" width="260" height="54" rx="27" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" />
-        <text x="490" y="84" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="19" font-weight="700" fill="${theme.pillColor}" text-anchor="middle">${theme.pillText}</text>
-
-        <!-- Bottom Gradient -->
-        <rect x="0" y="790" width="1080" height="290" fill="url(#bottomGrad)" />
-
-        <!-- Price & CTA Card -->
-        <rect x="50" y="915" width="980" height="110" rx="22" fill="rgba(15, 23, 42, 0.92)" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" />
-
-        <!-- Price Tag -->
-        <text x="90" y="970" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="34" font-weight="900" fill="#4ADE80">${theme.pricePrefix}: ${cleanPrice}</text>
-        <text x="90" y="1002" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="17" font-weight="600" fill="#94A3B8" letter-spacing="0.8">${theme.subText}</text>
-
-        <!-- Action Button -->
-        <rect x="790" y="940" width="215" height="60" rx="16" fill="${theme.btnColor}" />
-        <text x="897" y="978" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="800" fill="#FFFFFF" text-anchor="middle">${theme.btnText}</text>
-      </svg>
-    `);
-
-    // 4. Composite all layers into final 1080x1080 JPEG
+    // 3. Composite pure raster layers into final 1080x1080 JPEG
     await sharp(ambientBg)
-      .composite([
-        { input: foreground, gravity: 'center' },
-        { input: svgOverlay, top: 0, left: 0 },
-      ])
-      .jpeg({ quality: 92, mozjpeg: true })
+      .composite([{ input: foreground, gravity: 'center' }])
+      .jpeg({ quality: 92 })
       .toFile(outputPath);
   }
 
@@ -313,54 +276,7 @@ export class MediaProcessingService {
     return Buffer.from(response.data);
   }
 
-  /**
-   * Generates a sleek synthetic product card if external download is unavailable.
-   */
-  private async generateSyntheticProductBuffer(index: number, title?: string): Promise<Buffer> {
-    const shortTitle = (title || 'Premium Trending Product').slice(0, 36);
-    const svg = `
-      <svg width="800" height="800" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="synthGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#1E1B4B" />
-            <stop offset="50%" stop-color="#312E81" />
-            <stop offset="100%" stop-color="#0F172A" />
-          </linearGradient>
-        </defs>
-        <rect width="800" height="800" rx="32" fill="url(#synthGrad)" stroke="rgba(255,255,255,0.15)" stroke-width="3" />
-        <circle cx="400" cy="340" r="140" fill="#4F46E5" opacity="0.3" filter="blur(20px)" />
-        <circle cx="400" cy="340" r="100" fill="#6366F1" opacity="0.6" />
-        <text x="400" y="360" font-family="sans-serif" font-size="64" font-weight="900" fill="#FFFFFF" text-anchor="middle">★</text>
-        <text x="400" y="520" font-family="sans-serif" font-size="28" font-weight="bold" fill="#FFFFFF" text-anchor="middle">${shortTitle}</text>
-        <text x="400" y="560" font-family="sans-serif" font-size="20" font-weight="500" fill="#94A3B8" text-anchor="middle">1-Click PRO Studio Asset #${index}</text>
-      </svg>
-    `;
-    return await sharp(Buffer.from(svg)).jpeg().toBuffer();
-  }
 
-  /**
-   * Generates a modern gradient placeholder if an unexpected error occurs.
-   */
-  private async generatePlaceholderImage(outputPath: string, index: number): Promise<void> {
-    const gradients = [
-      { r: 37, g: 99, b: 235 },
-      { r: 79, g: 70, b: 229 },
-      { r: 147, g: 51, b: 234 },
-      { r: 13, g: 148, b: 136 },
-    ];
-    const bg = gradients[(index - 1) % gradients.length];
-
-    await sharp({
-      create: {
-        width: 1080,
-        height: 1080,
-        channels: 3,
-        background: bg,
-      },
-    })
-      .jpeg({ quality: 90 })
-      .toFile(outputPath);
-  }
 
   /**
    * Ensures the list contains at least 4 valid URLs by cycling through available images.
@@ -408,6 +324,7 @@ export class MediaProcessingService {
           '-t 8',
           '-c:v libx264',
           '-preset ultrafast',
+          '-crf 28',
           '-pix_fmt yuv420p',
           '-movflags +faststart',
         ])
