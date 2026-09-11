@@ -515,184 +515,284 @@
                 </span>
               </div>
 
-              <!-- DEDICATED MEDIA LOADER (When isMediaLoading) -->
-              <div *ngIf="isMediaLoading" class="mt-4 space-y-4 animate-fadeIn">
-                <!-- AI Crafting Notification Banner -->
-                <div class="p-4 rounded-xl bg-gradient-to-br from-indigo-50/90 to-violet-50/80 border border-indigo-100/90 flex items-start gap-3 shadow-2xs">
-                  <div class="p-2 rounded-lg bg-indigo-600 text-white shrink-0 mt-0.5 shadow-xs animate-pulse">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-                    </svg>
-                  </div>
-                  <div class="space-y-1">
-                    <h4 class="text-xs font-bold text-indigo-950">
-                      🎨 Generating 4x 1080x1080 DTC Ad Creatives & Promo Video...
-                    </h4>
-                    <p class="text-[11px] text-indigo-700 leading-relaxed">
-                      Rendering studio-grade ad creatives with dynamic marketing badges, price tags, and 10s crossfade promo video.
-                    </p>
-                  </div>
-                </div>
-
-                <!-- Video Rendering Skeleton Card -->
-                <div class="aspect-square rounded-xl bg-slate-900 border border-slate-800 flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
-                  <div class="absolute inset-0 bg-gradient-to-tr from-indigo-950/80 via-slate-900 to-violet-950/80 animate-pulse"></div>
-                  <div class="relative z-10 flex flex-col items-center gap-3">
-                    <div class="w-12 h-12 rounded-full border-2 border-indigo-500/30 border-t-indigo-400 animate-spin flex items-center justify-center">
-                      <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                      </svg>
-                    </div>
-                    <div>
-                      <p class="text-xs font-bold text-white tracking-tight">Rendering 10s MP4 Promo Video</p>
-                      <p class="text-[10px] text-slate-400 mt-0.5">FFmpeg H.264 · 25 FPS · 1080x1080 HD</p>
-                    </div>
-                    <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 text-[10px] font-mono text-indigo-200 border border-white/10">
-                      <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping"></span>
-                      <span>Synthesizing crossfade transitions...</span>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 4x Image Assets Skeleton Grid -->
-                <div class="pt-3 border-t border-slate-100">
-                  <div class="flex items-center justify-between mb-2.5">
-                    <span class="text-xs font-bold text-slate-700">🎨 Generating 4x DTC Ad Assets</span>
-                    <span class="text-[10px] font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 animate-pulse">Sharp Studio Engine</span>
-                  </div>
-                  <div class="grid grid-cols-2 gap-2.5">
-                    <div *ngFor="let item of [1, 2, 3, 4]" class="aspect-square rounded-lg bg-slate-100 border border-slate-200 animate-pulse flex flex-col items-center justify-center gap-1 p-3 text-center">
-                      <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                      </svg>
-                      <span class="text-[10px] font-medium text-slate-400">Lifestyle Asset #{{ item }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Media Notice / Error State -->
-              <div *ngIf="!isMediaLoading && mediaErrorMessage" class="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1">
-                <div class="flex items-center gap-2 font-bold">
-                  <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+              <!-- Media Studio Tab Switcher (AI Creatives vs Original Product Photos) -->
+              <div class="mt-4 p-1 bg-slate-100/90 rounded-xl border border-slate-200 flex items-center gap-1.5 shadow-2xs">
+                <button
+                  type="button"
+                  (click)="setMediaTab('ai')"
+                  [ngClass]="activeMediaTab === 'ai' ? 'bg-white text-indigo-700 shadow-xs font-bold border-slate-200' : 'text-slate-600 hover:text-slate-900 font-medium border-transparent'"
+                  class="flex-1 py-1.5 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all border cursor-pointer"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path>
                   </svg>
-                  <span>Media Studio Notice</span>
-                </div>
-                <p class="text-amber-800 text-[11px] leading-relaxed">{{ mediaErrorMessage }}</p>
+                  <span>AI Creatives & Video</span>
+                  <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                    AI
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  (click)="setMediaTab('original')"
+                  [ngClass]="activeMediaTab === 'original' ? 'bg-white text-emerald-700 shadow-xs font-bold border-slate-200' : 'text-slate-600 hover:text-slate-900 font-medium border-transparent'"
+                  class="flex-1 py-1.5 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all border cursor-pointer"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                  </svg>
+                  <span>Original Photos</span>
+                  <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                    {{ campaignResult.product.imageUrls?.length || 0 }}
+                  </span>
+                </button>
               </div>
 
-              <!-- Media Rendered State (When !isMediaLoading && (images or video exist)) -->
-              <div *ngIf="!isMediaLoading && (campaignResult.media?.videoUrl || (campaignResult.media?.images && campaignResult.media.images.length > 0))" class="animate-fadeIn">
-                <!-- Video Player (Top of Media Card - rendered if videoUrl present) -->
-                <div *ngIf="campaignResult.media.videoUrl" class="mt-4">
-                  <div class="relative aspect-square rounded-xl overflow-hidden bg-slate-950 border border-slate-200 shadow-md flex items-center justify-center">
-                    <video
-                      *ngIf="campaignResult.media.videoUrl"
-                      [src]="campaignResult.media.videoUrl"
-                      controls
-                      loop
-                      playsinline
-                      class="w-full h-full object-contain"
-                    >
-                      Your browser does not support the video tag.
-                    </video>
+              <!-- ============================================== -->
+              <!-- TAB 1: AI LIFESTYLE CREATIVES & PROMO VIDEO    -->
+              <!-- ============================================== -->
+              <div *ngIf="activeMediaTab === 'ai'" class="animate-fadeIn">
+                <!-- DEDICATED MEDIA LOADER (When isMediaLoading) -->
+                <div *ngIf="isMediaLoading" class="mt-4 space-y-4 animate-fadeIn">
+                  <!-- AI Crafting Notification Banner -->
+                  <div class="p-4 rounded-xl bg-gradient-to-br from-indigo-50/90 to-violet-50/80 border border-indigo-100/90 flex items-start gap-3 shadow-2xs">
+                    <div class="p-2 rounded-lg bg-indigo-600 text-white shrink-0 mt-0.5 shadow-xs animate-pulse">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                      </svg>
+                    </div>
+                    <div class="space-y-1">
+                      <h4 class="text-xs font-bold text-indigo-950">
+                        🎨 Generating AI Lifestyle Creatives & Promo Video...
+                      </h4>
+                      <p class="text-[11px] text-indigo-700 leading-relaxed">
+                        Synthesizing authentic in-use lifestyle scenes, high-converting DTC banners, and 10s MP4 promo video.
+                      </p>
+                    </div>
                   </div>
 
-                  <!-- Video Action Bar -->
-                  <div class="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-200/90 flex items-center justify-between">
-                    <div>
-                      <p class="text-xs font-bold text-slate-900">promo_video.mp4</p>
-                      <p class="text-[10px] text-slate-500">10s · 25fps · Crossfade H.264</p>
+                  <!-- Video Rendering Skeleton Card -->
+                  <div class="aspect-square rounded-xl bg-slate-900 border border-slate-800 flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-tr from-indigo-950/80 via-slate-900 to-violet-950/80 animate-pulse"></div>
+                    <div class="relative z-10 flex flex-col items-center gap-3">
+                      <div class="w-12 h-12 rounded-full border-2 border-indigo-500/30 border-t-indigo-400 animate-spin flex items-center justify-center">
+                        <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                      </div>
+                      <div>
+                        <p class="text-xs font-bold text-white tracking-tight">Rendering 10s MP4 Promo Video</p>
+                        <p class="text-[10px] text-slate-400 mt-0.5">FFmpeg H.264 · 25 FPS · 1080x1080 HD</p>
+                      </div>
+                      <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 text-[10px] font-mono text-indigo-200 border border-white/10">
+                        <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping"></span>
+                        <span>Synthesizing crossfade transitions...</span>
+                      </div>
                     </div>
+                  </div>
 
-                    <a
-                      [href]="campaignResult.media.videoUrl"
-                      download="promo_video.mp4"
-                      target="_blank"
-                      class="inline-flex items-center gap-1 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
-                    >
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                      </svg>
-                      <span>Download</span>
-                    </a>
+                  <!-- 4x Image Assets Skeleton Grid -->
+                  <div class="pt-3 border-t border-slate-100">
+                    <div class="flex items-center justify-between mb-2.5">
+                      <span class="text-xs font-bold text-slate-700">🎨 Generating 4x DTC Ad Assets</span>
+                      <span class="text-[10px] font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 animate-pulse">Sharp Studio Engine</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2.5">
+                      <div *ngFor="let item of [1, 2, 3, 4]" class="aspect-square rounded-lg bg-slate-100 border border-slate-200 animate-pulse flex flex-col items-center justify-center gap-1 p-3 text-center">
+                        <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        <span class="text-[10px] font-medium text-slate-400">Lifestyle Asset #{{ item }}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <!-- 4x 1080x1080 High-Res Images Grid (Bottom of Media Card) -->
-                <div *ngIf="campaignResult.media.images && campaignResult.media.images.length > 0" class="mt-5 pt-4 border-t border-slate-100">
-                  <div class="flex items-center justify-between mb-3">
-                    <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                      📸 1080x1080 DTC Ad Creatives (4x)
-                    </h4>
-                    <span class="text-[10px] text-slate-400 font-mono">DTC Formats</span>
+                <!-- Media Notice / Error State -->
+                <div *ngIf="!isMediaLoading && mediaErrorMessage" class="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1">
+                  <div class="flex items-center gap-2 font-bold">
+                    <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    <span>Media Studio Notice</span>
                   </div>
+                  <p class="text-amber-800 text-[11px] leading-relaxed">{{ mediaErrorMessage }}</p>
+                </div>
 
-                  <div class="grid grid-cols-2 gap-3">
-                    <div
-                      *ngFor="let imgUrl of campaignResult.media.images; let i = index"
-                      class="group relative aspect-square rounded-xl overflow-hidden bg-slate-900 border border-slate-200 shadow-md hover:shadow-xl transition-all duration-300 select-none"
-                    >
-                      <!-- Studio Enhanced Product Image -->
-                      <img
-                        [src]="imgUrl"
-                        [alt]="'Product Asset ' + (i + 1)"
-                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
+                <!-- Media Rendered State (When !isMediaLoading && (images or video exist)) -->
+                <div *ngIf="!isMediaLoading && (campaignResult.media?.videoUrl || (campaignResult.media?.images && campaignResult.media.images.length > 0))" class="animate-fadeIn">
+                  <!-- Video Player (Top of Media Card - rendered if videoUrl present) -->
+                  <div *ngIf="campaignResult.media.videoUrl" class="mt-4">
+                    <div class="relative aspect-square rounded-xl overflow-hidden bg-slate-950 border border-slate-200 shadow-md flex items-center justify-center">
+                      <video
+                        *ngIf="campaignResult.media.videoUrl"
+                        [src]="campaignResult.media.videoUrl"
+                        controls
+                        loop
+                        playsinline
+                        class="w-full h-full object-contain"
+                      >
+                        Your browser does not support the video tag.
+                      </video>
+                    </div>
 
-                      <!-- Top Dark Gradient for Text Contrast -->
-                      <div class="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/80 via-black/35 to-transparent pointer-events-none"></div>
-
-                      <!-- Top Badges Row -->
-                      <div class="absolute top-2 inset-x-2 flex items-center justify-between gap-1 pointer-events-none">
-                        <span
-                          [ngClass]="creativeThemes[i % 4].badgeClass"
-                          class="px-2 py-0.5 rounded-full text-[10px] font-black tracking-wide shadow-md"
-                        >
-                          {{ creativeThemes[i % 4].badgeText }}
-                        </span>
-
-                        <span class="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-black/60 backdrop-blur-xs text-amber-300 border border-white/20 shadow-xs">
-                          {{ creativeThemes[i % 4].pillText }}
-                        </span>
+                    <!-- Video Action Bar -->
+                    <div class="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-200/90 flex items-center justify-between">
+                      <div>
+                        <p class="text-xs font-bold text-slate-900">promo_video.mp4</p>
+                        <p class="text-[10px] text-slate-500">10s · 25fps · Crossfade H.264</p>
                       </div>
 
-                      <!-- Bottom Dark Gradient for Text Contrast -->
-                      <div class="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none"></div>
-
-                      <!-- Bottom Price & CTA Bar -->
-                      <div class="absolute bottom-2 inset-x-2 p-1.5 rounded-lg bg-slate-950/85 backdrop-blur-md border border-white/15 flex items-center justify-between gap-1.5 shadow-lg">
-                        <div class="min-w-0 flex-1">
-                          <div class="text-[11px] font-black text-emerald-400 font-mono tracking-tight leading-none truncate">
-                            {{ creativeThemes[i % 4].pricePrefix }}: {{ campaignResult.product.price || '$24.99' }}
-                          </div>
-                          <div class="text-[8px] font-medium text-slate-300 truncate leading-tight mt-0.5">
-                            {{ creativeThemes[i % 4].subText }}
-                          </div>
-                        </div>
-
-                        <span
-                          [ngClass]="creativeThemes[i % 4].btnClass"
-                          class="px-2 py-1 rounded-md text-[9px] font-black text-white shadow-xs shrink-0 tracking-wider"
-                        >
-                          {{ creativeThemes[i % 4].btnText }}
-                        </span>
-                      </div>
-
-                      <!-- Full Resolution Open Button -->
                       <a
-                        [href]="imgUrl"
+                        [href]="campaignResult.media.videoUrl"
+                        download="promo_video.mp4"
                         target="_blank"
-                        class="absolute top-2 right-2 p-1 bg-white/95 rounded-lg text-slate-800 opacity-0 group-hover:opacity-100 transition-opacity shadow-md border border-slate-200 hover:text-indigo-600 cursor-pointer z-10"
-                        title="Open Full Resolution"
+                        class="inline-flex items-center gap-1 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
                       >
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                         </svg>
+                        <span>Download</span>
                       </a>
+                    </div>
+                  </div>
+
+                  <!-- 4x 1080x1080 High-Res Images Grid (Bottom of Media Card) -->
+                  <div *ngIf="campaignResult.media.images && campaignResult.media.images.length > 0" class="mt-5 pt-4 border-t border-slate-100">
+                    <div class="flex items-center justify-between mb-3">
+                      <div>
+                        <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          🎨 AI Lifestyle & DTC Creatives
+                        </h4>
+                        <p class="text-[10px] text-slate-400">Generated with neural diffusion & direct-response overlays</p>
+                      </div>
+                      <span class="text-[10px] text-indigo-600 bg-indigo-50 font-bold px-2 py-0.5 rounded border border-indigo-100">AI Generated</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                      <div
+                        *ngFor="let imgUrl of campaignResult.media.images; let i = index"
+                        class="group relative aspect-square rounded-xl overflow-hidden bg-slate-900 border border-slate-200 shadow-md hover:shadow-xl transition-all duration-300 select-none"
+                      >
+                        <!-- Studio Enhanced Product Image -->
+                        <img
+                          [src]="imgUrl"
+                          [alt]="'Product Asset ' + (i + 1)"
+                          class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+
+                        <!-- Top Dark Gradient for Text Contrast -->
+                        <div class="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/80 via-black/35 to-transparent pointer-events-none"></div>
+
+                        <!-- Top Badges Row -->
+                        <div class="absolute top-2 inset-x-2 flex items-center justify-between gap-1 pointer-events-none">
+                          <span
+                            [ngClass]="creativeThemes[i % 4].badgeClass"
+                            class="px-2 py-0.5 rounded-full text-[10px] font-black tracking-wide shadow-md"
+                          >
+                            {{ creativeThemes[i % 4].badgeText }}
+                          </span>
+
+                          <span class="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-black/60 backdrop-blur-xs text-amber-300 border border-white/20 shadow-xs">
+                            {{ creativeThemes[i % 4].pillText }}
+                          </span>
+                        </div>
+
+                        <!-- Bottom Dark Gradient for Text Contrast -->
+                        <div class="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none"></div>
+
+                        <!-- Bottom Price & CTA Bar -->
+                        <div class="absolute bottom-2 inset-x-2 p-1.5 rounded-lg bg-slate-950/85 backdrop-blur-md border border-white/15 flex items-center justify-between gap-1.5 shadow-lg">
+                          <div class="min-w-0 flex-1">
+                            <div class="text-[11px] font-black text-emerald-400 font-mono tracking-tight leading-none truncate">
+                              {{ creativeThemes[i % 4].pricePrefix }}: {{ campaignResult.product.price || '$24.99' }}
+                            </div>
+                            <div class="text-[8px] font-medium text-slate-300 truncate leading-tight mt-0.5">
+                              {{ creativeThemes[i % 4].subText }}
+                            </div>
+                          </div>
+
+                          <span
+                            [ngClass]="creativeThemes[i % 4].btnClass"
+                            class="px-2 py-1 rounded-md text-[9px] font-black text-white shadow-xs shrink-0 tracking-wider"
+                          >
+                            {{ creativeThemes[i % 4].btnText }}
+                          </span>
+                        </div>
+
+                        <!-- Full Resolution Open Button -->
+                        <a
+                          [href]="imgUrl"
+                          target="_blank"
+                          class="absolute top-2 right-2 p-1 bg-white/95 rounded-lg text-slate-800 opacity-0 group-hover:opacity-100 transition-opacity shadow-md border border-slate-200 hover:text-indigo-600 cursor-pointer z-10"
+                          title="Open Full Resolution"
+                        >
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                          </svg>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ============================================== -->
+              <!-- TAB 2: ORIGINAL ALIEXPRESS PRODUCT PHOTOS      -->
+              <!-- ============================================== -->
+              <div *ngIf="activeMediaTab === 'original'" class="mt-4 animate-fadeIn space-y-3">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div>
+                    <h4 class="text-xs font-bold text-slate-800">Original Supplier Photos</h4>
+                    <p class="text-[10px] text-slate-500">Unmodified images scraped directly from the AliExpress listing</p>
+                  </div>
+                  <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                    {{ campaignResult.product.imageUrls?.length || 0 }} Photos
+                  </span>
+                </div>
+
+                <!-- No Images Fallback -->
+                <div *ngIf="!campaignResult.product.imageUrls || campaignResult.product.imageUrls.length === 0" class="p-6 text-center text-slate-400 text-xs">
+                  No original supplier photos found for this listing.
+                </div>
+
+                <!-- Original Product Photos Grid -->
+                <div *ngIf="campaignResult.product.imageUrls && campaignResult.product.imageUrls.length > 0" class="grid grid-cols-2 sm:grid-cols-2 gap-3 max-h-[520px] overflow-y-auto pr-1">
+                  <div
+                    *ngFor="let origUrl of campaignResult.product.imageUrls; let idx = index"
+                    class="group relative aspect-square rounded-xl overflow-hidden bg-slate-50 border border-slate-200 hover:border-emerald-300 shadow-xs hover:shadow-md transition-all select-none"
+                  >
+                    <img
+                      [src]="origUrl"
+                      [alt]="'Original Product Photo ' + (idx + 1)"
+                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
+
+                    <!-- Image Index Badge -->
+                    <div class="absolute top-2 left-2 pointer-events-none">
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-black/70 text-white backdrop-blur-xs border border-white/20 shadow-xs">
+                        Photo #{{ idx + 1 }}
+                      </span>
+                    </div>
+
+                    <!-- View Action Button -->
+                    <a
+                      [href]="origUrl"
+                      target="_blank"
+                      class="absolute top-2 right-2 p-1.5 bg-white/95 rounded-lg text-slate-800 opacity-0 group-hover:opacity-100 transition-opacity shadow-md border border-slate-200 hover:text-emerald-600 cursor-pointer z-10"
+                      title="Open Full Resolution Photo"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                      </svg>
+                    </a>
+
+                    <!-- Bottom Filename / Dimension Overlay on Hover -->
+                    <div class="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                      <p class="text-[10px] font-medium text-white truncate">Supplier Asset {{ idx + 1 }}</p>
                     </div>
                   </div>
                 </div>

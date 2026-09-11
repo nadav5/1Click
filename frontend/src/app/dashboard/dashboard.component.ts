@@ -97,6 +97,17 @@ export class DashboardComponent implements OnDestroy {
   copiedReviewIndex: number | null = null;
 
   /**
+   * Active tab in the Media Studio:
+   * 'ai': AI Generated Lifestyle Creatives & Promo Video
+   * 'original': Original Scraped Product Photos from Supplier
+   */
+  activeMediaTab: 'ai' | 'original' = 'ai';
+
+  setMediaTab(tab: 'ai' | 'original'): void {
+    this.activeMediaTab = tab;
+  }
+
+  /**
    * Metadata for the 3 direct-response ad frameworks.
    */
   readonly frameworkMeta: AdFrameworkMeta[] = [
@@ -237,6 +248,7 @@ export class DashboardComponent implements OnDestroy {
     this.campaignResult = null;
     this.errorMessage = null;
     this.mediaErrorMessage = null;
+    this.activeMediaTab = 'ai';
     this.isTextLoading = true;
     this.isMediaLoading = false;
     this.loadingStep = 'Connecting to AliExpress & extracting product data...';

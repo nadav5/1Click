@@ -112,7 +112,11 @@ AUDIENCE, KEYWORDS & CUSTOMER REVIEWS:
 - "targetAudience": 3 ultra-targeted demographic & interest segments ready to paste into Meta Ads Manager tailored strictly to "${productData.title}". Include age ranges, specific Facebook interest categories, and buying behaviors.
 - "keywords": 5 high-intent commercial search keywords and niche hashtags directly matching "${productData.title}".
 - "customerReviews": 4 to 6 top analyzed reviews representing the strongest customer proof points. Each review must have "author", "rating" (number, e.g. 5), "text", "date", "country", and a short "highlight" (e.g., "Build Quality", "Time Saver", "Unbeatable Value").
-- "imagePrompts": 4 concise, high-impact commercial image generation prompts (under 75 characters each) specifically for "${productData.title}". Prompt 1 MUST feature a real person actively using or wearing the product in a natural lifestyle setting (e.g. "Woman happily using ergonomic product, bright modern setting"). Prompt 2 must be an aesthetic modern room or desk setup featuring the product. Prompt 3 must be a crisp commercial studio product shot. Prompt 4 must be a close-up lifestyle action shot.
+- "imagePrompts": 4 rich, highly-descriptive commercial photography prompts (around 150-250 characters each) specifically designed for modern diffusion models (like Flux) for "${productData.title}". Include camera settings, realistic lighting, and sharp focus:
+  * Prompt 1 (Customer Lifestyle In-Use): "Commercial lifestyle photography of a happy, attractive person actively using [product] in [natural realistic environment], shot on 35mm lens f/2.8, natural soft daylight, authentic skin texture, crisp sharp focus, photorealistic 8k uhd"
+  * Prompt 2 (Realistic Environment / In-Context): "Aesthetic lifestyle scene featuring [product] in an authentic modern setting, warm daylight, commercial editorial magazine quality, ultra sharp details"
+  * Prompt 3 (Commercial Studio Showcase): "High-end commercial catalog studio photography of [product], dramatic softbox lighting, pristine clean background, crisp textures, 8k resolution"
+  * Prompt 4 (Close-up Macro Utility): "Crisp close-up lifestyle shot of hands demonstrating [product], showing premium materials, ergonomic build, and effortless ease of use"
 
 OUTPUT FORMAT:
 Return ONLY a valid, raw JSON object (no markdown formatting, no code blocks, no backticks, no preamble) with this exact schema:
@@ -145,10 +149,10 @@ Return ONLY a valid, raw JSON object (no markdown formatting, no code blocks, no
     }
   ],
   "imagePrompts": [
-    "A photorealistic commercial lifestyle photo of a person actively using...",
-    "A clean, aesthetic modern living or desk space featuring...",
-    "A commercial studio product photograph of...",
-    "A dynamic close-up lifestyle shot of..."
+    "Commercial lifestyle photography of a smiling customer actively using...",
+    "Aesthetic lifestyle scene featuring...",
+    "High-end commercial catalog studio photography of...",
+    "Crisp close-up lifestyle shot of hands demonstrating..."
   ]
 }
 `;
@@ -309,10 +313,10 @@ Return ONLY a valid, raw JSON object (no markdown formatting, no code blocks, no
       keywords: [tag1, tag2, tag3, tag4, tag5],
       customerReviews: reviews.slice(0, 6),
       imagePrompts: [
-        `Photorealistic commercial lifestyle photography of a person actively using ${titleSnippet} in a modern stylish setting, authentic natural lighting, 8k`,
-        `A clean minimalist aesthetic desk and living space beautifully showcasing ${titleSnippet}, warm ambient lighting, 8k resolution`,
-        `A crisp commercial studio product shot of ${titleSnippet}, dramatic spotlight, dark elegant background, 8k resolution`,
-        `A dynamic close-up candid lifestyle photo of hands interacting with ${titleSnippet}, premium build quality`,
+        `Commercial lifestyle photography of a smiling, attractive customer actively using ${titleSnippet} in a natural environment, shot on 35mm lens f/2.8, natural soft daylight, authentic skin texture, crisp sharp focus, photorealistic 8k uhd`,
+        `Aesthetic lifestyle scene featuring ${titleSnippet} in an authentic modern setting, warm daylight, commercial editorial magazine quality, ultra sharp details`,
+        `High-end commercial catalog studio photography of ${titleSnippet}, dramatic softbox lighting, pristine clean background, crisp textures, 8k resolution`,
+        `Crisp close-up lifestyle shot of hands demonstrating ${titleSnippet}, showing premium materials, ergonomic build, and effortless ease of use`,
       ],
     };
   }

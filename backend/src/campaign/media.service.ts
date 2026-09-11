@@ -144,15 +144,17 @@ export class MediaProcessingService {
       const localImagePaths: string[] = [];
       const publicImageUrls: string[] = [];
 
-      // Download primary scraped product image as rock-solid fallback & studio asset
-      let primaryScrapedBuffer: Buffer | null = null;
+      // Download up to 4 distinct scraped product images for diverse studio showcases & fallbacks
+      const scrapedBuffers: Buffer[] = [];
       for (const url of selectedUrls) {
-        primaryScrapedBuffer = await this.downloadImageBuffer(url);
-        if (primaryScrapedBuffer) {
-          this.logger.log(`Downloaded valid primary product image for studio showcase (${primaryScrapedBuffer.length} bytes).`);
-          break;
+        if (scrapedBuffers.length >= 4) break;
+        const buf = await this.downloadImageBuffer(url);
+        if (buf && buf.length > 3000) {
+          scrapedBuffers.push(buf);
         }
       }
+      const primaryScrapedBuffer = scrapedBuffers[0] || null;
+      this.logger.log(`Downloaded ${scrapedBuffers.length} distinct supplier images for showcase diversity.`);
 
       const cleanTitle = (title || 'trending product')
         .replace(/[^a-zA-Z0-9\s]/g, ' ')
@@ -164,39 +166,50 @@ export class MediaProcessingService {
         imagePrompts && imagePrompts.length >= 4
           ? imagePrompts
           : [
-              `A photorealistic commercial lifestyle photo of a person actively using ${cleanTitle} in a modern stylish setting, authentic natural lighting, 8k resolution`,
-              `A clean minimalist aesthetic desk and room setup beautifully featuring ${cleanTitle}, warm ambient lighting, cinematic photography, 8k`,
-              `A crisp commercial studio product shot of ${cleanTitle}, dramatic spotlight, dark elegant background, 8k resolution`,
-              `A dynamic close-up candid lifestyle photo of hands interacting with ${cleanTitle}, showcasing high build quality and convenience`,
+              `Commercial lifestyle photography of a smiling, attractive customer actively using ${cleanTitle} in a natural environment, shot on 35mm lens f/2.8, natural soft daylight, authentic skin texture, crisp sharp focus, photorealistic 8k uhd`,
+              `Aesthetic lifestyle scene featuring ${cleanTitle} in an authentic modern setting, warm daylight, commercial editorial magazine quality, ultra sharp details`,
+              `High-end commercial catalog studio photography of ${cleanTitle}, dramatic softbox lighting, pristine clean background, crisp textures, 8k resolution`,
+              `Crisp close-up lifestyle shot of hands demonstrating ${cleanTitle}, showing premium materials, ergonomic build, and effortless ease of use`,
             ];
 
-      // Generate Asset 0: Primary AI Lifestyle image of person using product
+      // Generate Asset 0: Primary AI Lifestyle image (Customer actively using product)
       this.logger.log(`[Media Studio] Generating Asset #0 (Hero AI Lifestyle In-Use) with prompt: "${prompts[0]}"...`);
-      let buf0: Buffer | null = await this.generatePollinationsImage(prompts[0], 12000);
+      let buf0: Buffer | null = await this.generatePollinationsImage(prompts[0], 14000);
 
-      // Generate Asset 1: Premium DTC Commercial Studio Showcase
-      this.logger.log('[Media Studio] Generating Asset #1 (DTC Commercial Studio Showcase)...');
-      let buf1: Buffer | null = null;
-      if (primaryScrapedBuffer) {
-        buf1 = await this.renderStudioBuffer(primaryScrapedBuffer, this.themes[1]);
-      } else if (prompts[1]) {
-        buf1 = await this.generatePollinationsImage(prompts[1], 10000);
+      // Brief 2.5s delay before second generation to let public queue clear completely
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+
+      // Generate Asset 1: Secondary AI Lifestyle scene (Aesthetic Environment / In-Context)
+      this.logger.log(`[Media Studio] Generating Asset #1 (AI In-Context Scene) with prompt: "${prompts[1]}"...`);
+      let buf1: Buffer | null = await this.generatePollinationsImage(prompts[1], 14000);
+
+      // Fallback Asset 1 to distinct supplier image #2 if AI generation timed out
+      if (!buf1) {
+        const fallback1 = scrapedBuffers[1] || primaryScrapedBuffer;
+        if (fallback1) {
+          this.logger.log('[Media Studio] Asset #1 using distinct supplier photo #2 studio showcase...');
+          buf1 = await this.renderStudioBuffer(fallback1, this.themes[1]);
+        }
       }
 
-      // Generate Asset 2: Dynamic Feature Focus Presentation
-      this.logger.log('[Media Studio] Generating Asset #2 (Dynamic Feature Focus)...');
+      // Generate Asset 2: Premium DTC Commercial Studio Showcase using distinct supplier photo #3
+      this.logger.log('[Media Studio] Generating Asset #2 (DTC Hardware Studio Showcase)...');
       let buf2: Buffer | null = null;
-      if (primaryScrapedBuffer) {
-        buf2 = await this.renderStudioBuffer(primaryScrapedBuffer, this.themes[2]);
+      const asset2Src = scrapedBuffers[2] || scrapedBuffers[1] || primaryScrapedBuffer;
+      if (asset2Src) {
+        buf2 = await this.renderStudioBuffer(asset2Src, this.themes[2]);
+      } else if (buf1) {
+        buf2 = buf1;
       } else if (buf0) {
         buf2 = buf0;
       }
 
-      // Generate Asset 3: Trust & 100% Risk Free Guarantee Card
+      // Generate Asset 3: Trust & 100% Risk-Free Guarantee Card using distinct supplier photo #4
       this.logger.log('[Media Studio] Generating Asset #3 (Trust & Risk-Free Guarantee)...');
       let buf3: Buffer | null = null;
-      if (primaryScrapedBuffer) {
-        buf3 = await this.renderStudioBuffer(primaryScrapedBuffer, this.themes[3]);
+      const asset3Src = scrapedBuffers[3] || scrapedBuffers[0] || primaryScrapedBuffer;
+      if (asset3Src) {
+        buf3 = await this.renderStudioBuffer(asset3Src, this.themes[3]);
       } else if (buf0) {
         buf3 = buf0;
       }
@@ -209,9 +222,10 @@ export class MediaProcessingService {
         const outputPath = path.join(tempBaseDir, filename);
         let finalBuffer = assetBuffers[i];
 
-        // If buffer is still null, generate studio buffer from primary image or theme placeholder
-        if (!finalBuffer && primaryScrapedBuffer) {
-          finalBuffer = await this.renderStudioBuffer(primaryScrapedBuffer, this.themes[i]);
+        // If buffer is still null, generate studio buffer from diverse scraped photo or placeholder
+        if (!finalBuffer && scrapedBuffers.length > 0) {
+          const diverseBuf = scrapedBuffers[i % scrapedBuffers.length];
+          finalBuffer = await this.renderStudioBuffer(diverseBuf, this.themes[i]);
         }
 
         if (!finalBuffer) {
@@ -277,21 +291,21 @@ export class MediaProcessingService {
   }
 
   /**
-   * Generates a photorealistic AI lifestyle image using Pollinations (Flux model)
-   * with automatic watermark cropping via Sharp.
+   * Generates a photorealistic, razor-sharp AI lifestyle image using Pollinations (Flux model)
+   * with automatic watermark cropping and Sharp unsharp masking & vibrancy enhancements.
    */
-  async generatePollinationsImage(prompt: string, timeoutMs: number = 12000): Promise<Buffer | null> {
+  async generatePollinationsImage(prompt: string, timeoutMs: number = 14000): Promise<Buffer | null> {
     const seed = Math.floor(Math.random() * 1000000);
-    // Sanitize and trim prompt to under 90 characters for fast GPU generation
+    // Sanitize and trim prompt to under 350 characters to retain full photographic & lighting context
     const sanitizedPrompt = prompt
       .replace(/[^a-zA-Z0-9\s,.-]/g, ' ')
       .replace(/\s+/g, ' ')
-      .slice(0, 90)
+      .slice(0, 350)
       .trim();
     const cleanPrompt = encodeURIComponent(sanitizedPrompt);
-    const url = `https://image.pollinations.ai/prompt/${cleanPrompt}?model=flux&seed=${seed}`;
+    const url = `https://image.pollinations.ai/prompt/${cleanPrompt}?model=flux&width=1024&height=1024&seed=${seed}`;
 
-    this.logger.log(`[Pollinations] Requesting AI lifestyle image: "${sanitizedPrompt}"...`);
+    this.logger.log(`[Pollinations] Requesting high-res AI lifestyle image: "${sanitizedPrompt}"...`);
     try {
       const response = await axios.get(url, {
         responseType: 'arraybuffer',
@@ -308,20 +322,23 @@ export class MediaProcessingService {
         throw new Error('Received truncated image payload');
       }
 
-      // Crop the bottom 6% to remove any platform watermark and normalize to 1080x1080
+      // Crop the bottom 5.5% to cleanly remove the platform watermark and normalize to 1080x1080
       const img = sharp(rawBuffer);
       const meta = await img.metadata();
-      const w = meta.width || 768;
-      const h = meta.height || 768;
-      const cropH = Math.floor(h * 0.94);
+      const w = meta.width || 1024;
+      const h = meta.height || 1024;
+      const cropH = Math.floor(h * 0.945);
 
+      // Apply unsharp masking to remove diffusion softness and boost vibrancy for commercial punch
       const cleanBuffer = await img
         .extract({ top: 0, left: 0, width: w, height: cropH })
         .resize(1080, 1080, { fit: 'cover' })
-        .jpeg({ quality: 92 })
+        .sharpen({ sigma: 1.2, m1: 1.0, m2: 2.2 })
+        .modulate({ brightness: 1.02, saturation: 1.06 })
+        .jpeg({ quality: 95 })
         .toBuffer();
 
-      this.logger.log(`[Pollinations] Successfully generated and cropped AI image (${cleanBuffer.length} bytes).`);
+      this.logger.log(`[Pollinations] Successfully generated, enhanced, and cropped AI image (${cleanBuffer.length} bytes).`);
       return cleanBuffer;
     } catch (err: any) {
       this.logger.warn(`[Pollinations] Image generation failed: ${err.message}`);
