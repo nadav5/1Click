@@ -6,8 +6,13 @@ import { MarketingData, ScrapedProduct } from './campaign.interface.js';
 @Injectable()
 export class AiContentService implements OnModuleInit {
   private readonly logger = new Logger(AiContentService.name);
-  private modelName = 'gemini-3.6-flash';
-  private readonly candidateModels = ['gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
+  private modelName = 'gemini-3.5-flash-lite';
+  private readonly candidateModels = [
+    'gemini-3.5-flash-lite',
+    'gemini-3.6-flash',
+    'gemini-flash-lite-latest',
+    'gemini-3.7-flash',
+  ];
 
   constructor(private readonly configService: ConfigService) {}
 
@@ -107,7 +112,7 @@ AUDIENCE, KEYWORDS & CUSTOMER REVIEWS:
 - "targetAudience": 3 ultra-targeted demographic & interest segments ready to paste into Meta Ads Manager tailored strictly to "${productData.title}". Include age ranges, specific Facebook interest categories, and buying behaviors.
 - "keywords": 5 high-intent commercial search keywords and niche hashtags directly matching "${productData.title}".
 - "customerReviews": 4 to 6 top analyzed reviews representing the strongest customer proof points. Each review must have "author", "rating" (number, e.g. 5), "text", "date", "country", and a short "highlight" (e.g., "Build Quality", "Time Saver", "Unbeatable Value").
-- "imagePrompts": 4 highly detailed commercial image generation prompts specifically for "${productData.title}". Prompt 1 must feature a real person actively using the product in a modern lifestyle setting. Prompt 2 must be an aesthetic environment or room setup featuring the product. Prompt 3 must be a high-end commercial studio product shot. Prompt 4 must be a close-up lifestyle action shot showing texture and quality.
+- "imagePrompts": 4 concise, high-impact commercial image generation prompts (under 75 characters each) specifically for "${productData.title}". Prompt 1 MUST feature a real person actively using or wearing the product in a natural lifestyle setting (e.g. "Woman happily using ergonomic product, bright modern setting"). Prompt 2 must be an aesthetic modern room or desk setup featuring the product. Prompt 3 must be a crisp commercial studio product shot. Prompt 4 must be a close-up lifestyle action shot.
 
 OUTPUT FORMAT:
 Return ONLY a valid, raw JSON object (no markdown formatting, no code blocks, no backticks, no preamble) with this exact schema:
@@ -179,10 +184,10 @@ Return ONLY a valid, raw JSON object (no markdown formatting, no code blocks, no
           if (!Array.isArray(parsed.imagePrompts) || parsed.imagePrompts.length === 0) {
             const cleanTitle = productData.title.replace(/[^a-zA-Z0-9\s]/g, ' ').slice(0, 60).trim();
             parsed.imagePrompts = [
-              `Photorealistic commercial lifestyle photography of a person actively and happily using ${cleanTitle} in a modern, stylish setting, authentic natural lighting, 8k resolution`,
-              `A clean, aesthetic modern living space setup beautifully showcasing ${cleanTitle}, cinematic depth of field, warm ambient lighting, 8k`,
-              `A sleek commercial studio product photograph of ${cleanTitle}, clean minimalist background, dramatic studio lighting, razor sharp details`,
-              `A dynamic close-up candid lifestyle photo of hands interacting with ${cleanTitle}, showcasing high build quality and convenience`,
+              `Person happily using ${cleanTitle}, modern lifestyle setting, soft natural lighting`,
+              `Modern aesthetic desk room setup featuring ${cleanTitle}, warm ambient light`,
+              `Crisp commercial studio product photograph of ${cleanTitle}, dramatic spotlight`,
+              `Close-up candid lifestyle photo of hands using ${cleanTitle}, premium quality`,
             ];
           }
           this.logger.log(

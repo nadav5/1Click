@@ -171,33 +171,34 @@ export class MediaProcessingService {
             ];
 
       // Generate Asset 0: Primary AI Lifestyle image of person using product
-      this.logger.log('[Media Studio] Generating Asset #0 (Lifestyle In-Use)...');
-      let buf0: Buffer | null = await this.generatePollinationsImage(prompts[0], 6500);
-      if (!buf0) {
-        this.logger.log('[Media Studio] Trying AI Horde for Asset #0...');
-        buf0 = await this.generateHordeImage(prompts[0], 8000);
+      this.logger.log(`[Media Studio] Generating Asset #0 (Hero AI Lifestyle In-Use) with prompt: "${prompts[0]}"...`);
+      let buf0: Buffer | null = await this.generatePollinationsImage(prompts[0], 12000);
+
+      // Generate Asset 1: Premium DTC Commercial Studio Showcase
+      this.logger.log('[Media Studio] Generating Asset #1 (DTC Commercial Studio Showcase)...');
+      let buf1: Buffer | null = null;
+      if (primaryScrapedBuffer) {
+        buf1 = await this.renderStudioBuffer(primaryScrapedBuffer, this.themes[1]);
+      } else if (prompts[1]) {
+        buf1 = await this.generatePollinationsImage(prompts[1], 10000);
       }
 
-      // Generate Asset 1: Aesthetic Environment / Setup
-      this.logger.log('[Media Studio] Generating Asset #1 (Aesthetic Environment)...');
-      let buf1: Buffer | null = await this.generatePollinationsImage(prompts[1], 5500);
-
-      // Generate Asset 2: Dynamic Lifestyle / Action Shot
-      this.logger.log('[Media Studio] Generating Asset #2 (Dynamic Action)...');
+      // Generate Asset 2: Dynamic Feature Focus Presentation
+      this.logger.log('[Media Studio] Generating Asset #2 (Dynamic Feature Focus)...');
       let buf2: Buffer | null = null;
-      if (buf0 && !buf1) {
+      if (primaryScrapedBuffer) {
+        buf2 = await this.renderStudioBuffer(primaryScrapedBuffer, this.themes[2]);
+      } else if (buf0) {
         buf2 = buf0;
-      } else {
-        buf2 = await this.generatePollinationsImage(prompts[2], 5500);
       }
 
-      // Generate Asset 3: Studio showcase of actual scraped product
-      this.logger.log('[Media Studio] Generating Asset #3 (Studio Showcase of Scraped Product)...');
+      // Generate Asset 3: Trust & 100% Risk Free Guarantee Card
+      this.logger.log('[Media Studio] Generating Asset #3 (Trust & Risk-Free Guarantee)...');
       let buf3: Buffer | null = null;
       if (primaryScrapedBuffer) {
         buf3 = await this.renderStudioBuffer(primaryScrapedBuffer, this.themes[3]);
-      } else {
-        buf3 = await this.generatePollinationsImage(prompts[3], 5500);
+      } else if (buf0) {
+        buf3 = buf0;
       }
 
       // Assemble final 4 buffers with absolute fallback guarantee
@@ -223,25 +224,41 @@ export class MediaProcessingService {
         this.logger.log(`[Media Studio #${i + 1}/4] Saved ad creative to ${outputPath}`);
       }
 
-      // Step 2: Generate 10s slideshow promo video with FFmpeg (strict 8s timeout)
+      // Step 2: Generate 10s slideshow promo video with FFmpeg (cancelable with 18s timeout)
       const videoFilename = 'promo_video.mp4';
       const localVideoPath = path.join(tempBaseDir, videoFilename);
       let publicVideoUrl = '';
 
       if (this.isFfmpegAvailable()) {
+        let videoTask: { promise: Promise<void>; cancel: () => void } | null = null;
+        let timeoutId: NodeJS.Timeout | null = null;
         try {
           this.logger.log(`FFmpeg binary detected. Rendering promo video for product ${productId}...`);
+          videoTask = this.generateSlideshowVideo(localImagePaths, localVideoPath);
           await Promise.race([
-            this.generateSlideshowVideo(localImagePaths, localVideoPath),
-            new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('Video generation exceeded 8s limit')), 8000),
-            ),
+            videoTask.promise,
+            new Promise((_, reject) => {
+              timeoutId = setTimeout(() => {
+                if (videoTask) videoTask.cancel();
+                reject(new Error('Video generation exceeded 18s limit'));
+              }, 18000);
+            }),
           ]);
           publicVideoUrl = `${this.baseUrl}/temp/products/${productId}/${videoFilename}`;
           this.logger.log(`Promotional video successfully generated at: ${localVideoPath}`);
         } catch (videoError: any) {
-          this.logger.warn(`Video generation skipped: ${videoError.message}. Returning images.`);
-          publicVideoUrl = '';
+          this.logger.warn(`Video generation primary attempt skipped: ${videoError.message}. Trying simple fallback...`);
+          if (videoTask) videoTask.cancel();
+          try {
+            await this.generateSimpleSlideshow(localImagePaths, localVideoPath);
+            publicVideoUrl = `${this.baseUrl}/temp/products/${productId}/${videoFilename}`;
+            this.logger.log(`Fallback promotional video successfully generated at: ${localVideoPath}`);
+          } catch (fallbackError: any) {
+            this.logger.warn(`Fallback video generation skipped: ${fallbackError.message}. Returning images.`);
+            publicVideoUrl = '';
+          }
+        } finally {
+          if (timeoutId) clearTimeout(timeoutId);
         }
       } else {
         this.logger.log('FFmpeg binary not detected in hosting environment.');
@@ -263,12 +280,18 @@ export class MediaProcessingService {
    * Generates a photorealistic AI lifestyle image using Pollinations (Flux model)
    * with automatic watermark cropping via Sharp.
    */
-  async generatePollinationsImage(prompt: string, timeoutMs: number = 6000): Promise<Buffer | null> {
+  async generatePollinationsImage(prompt: string, timeoutMs: number = 12000): Promise<Buffer | null> {
     const seed = Math.floor(Math.random() * 1000000);
-    const cleanPrompt = encodeURIComponent(prompt.trim());
-    const url = `https://image.pollinations.ai/prompt/${cleanPrompt}?model=flux&width=1024&height=1024&nologo=true&seed=${seed}`;
+    // Sanitize and trim prompt to under 90 characters for fast GPU generation
+    const sanitizedPrompt = prompt
+      .replace(/[^a-zA-Z0-9\s,.-]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .slice(0, 90)
+      .trim();
+    const cleanPrompt = encodeURIComponent(sanitizedPrompt);
+    const url = `https://image.pollinations.ai/prompt/${cleanPrompt}?model=flux&seed=${seed}`;
 
-    this.logger.log(`[Pollinations] Requesting AI image: "${prompt.slice(0, 60)}..."`);
+    this.logger.log(`[Pollinations] Requesting AI lifestyle image: "${sanitizedPrompt}"...`);
     try {
       const response = await axios.get(url, {
         responseType: 'arraybuffer',
@@ -276,7 +299,7 @@ export class MediaProcessingService {
         headers: {
           'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+          Accept: 'image/jpeg,image/png,image/*,*/*',
         },
       });
 
@@ -288,8 +311,8 @@ export class MediaProcessingService {
       // Crop the bottom 6% to remove any platform watermark and normalize to 1080x1080
       const img = sharp(rawBuffer);
       const meta = await img.metadata();
-      const w = meta.width || 1024;
-      const h = meta.height || 1024;
+      const w = meta.width || 768;
+      const h = meta.height || 768;
       const cropH = Math.floor(h * 0.94);
 
       const cleanBuffer = await img
@@ -478,12 +501,18 @@ export class MediaProcessingService {
   }
 
   /**
-   * Uses fluent-ffmpeg to stitch 4 images into a 10-second MP4 slideshow
+   * Uses fluent-ffmpeg to stitch 4 images into an 8-10 second MP4 slideshow
    * with smooth crossfade transitions between slides.
+   * Returns a cancelable task to ensure child processes are terminated on timeout.
    */
-  private generateSlideshowVideo(imagePaths: string[], outputPath: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const command = ffmpeg();
+  private generateSlideshowVideo(
+    imagePaths: string[],
+    outputPath: string,
+  ): { promise: Promise<void>; cancel: () => void } {
+    let command: any = null;
+
+    const promise = new Promise<void>((resolve, reject) => {
+      command = ffmpeg();
 
       imagePaths.forEach((imgPath) => {
         command.input(imgPath).loop(2.8).fps(20);
@@ -516,12 +545,24 @@ export class MediaProcessingService {
           this.logger.log(`Slideshow video successfully created at ${outputPath}`);
           resolve();
         })
-        .on('error', (err) => {
-          this.logger.error(`FFmpeg slideshow generation error: ${err.message}`);
+        .on('error', (err: any) => {
+          this.logger.warn(`FFmpeg slideshow generation error: ${err.message}`);
           reject(err);
         })
         .run();
     });
+
+    const cancel = () => {
+      if (command) {
+        try {
+          command.kill('SIGKILL');
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    return { promise, cancel };
   }
 
   /**
@@ -537,7 +578,7 @@ export class MediaProcessingService {
       ffmpeg()
         .input(concatFilePath)
         .inputOptions(['-f concat', '-safe 0'])
-        .outputOptions(['-c:v libx264', '-pix_fmt yuv420p', '-t 10'])
+        .outputOptions(['-c:v libx264', '-preset ultrafast', '-pix_fmt yuv420p', '-t 10'])
         .output(outputPath)
         .on('end', () => {
           if (fs.existsSync(concatFilePath)) fs.unlinkSync(concatFilePath);
